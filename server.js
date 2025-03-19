@@ -10,10 +10,10 @@ const session = require("express-session");
 // Configura express-session
 app.use(
   session({
-    secret: "09876", // Cambia 'your_secret_key' por una clave secreta segura
+    secret: "09876",
     resave: false,
     saveUninitialized: true,
-    cookie: { secure: false }, // Asegúrate de configurar 'secure: true' en producción si usas HTTPS
+    cookie: { secure: false },
   })
 );
 

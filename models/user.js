@@ -4,7 +4,19 @@ const crypto = require("crypto");
 const User = {};
 
 User.getAll = () => {
-  const sql = `SELECT * FROM usuarios`;
+  const sql = `SELECT 
+    id,
+    TRIM(nombres) AS nombres,
+    TRIM(apellido_paterno) AS apellido_paterno,
+    TRIM(apellido_materno) AS apellido_materno,
+    TRIM(matricula) AS matricula,
+    contraseña,
+    tipo_usuario,
+    TRIM(correo) AS correo,
+    telefono,
+    fecha_creacion
+FROM usuarios;
+`;
   return db.manyOrNone(sql);
 };
 
@@ -27,33 +39,24 @@ User.findById = (id, callback) => {
   });
 };
 
-User.findByEmail = (email) => {
+User.findByMatricula = async (matricula) => {
+  if (!matricula) {
+    throw new Error("La matrícula es requerida para la consulta");
+  }
+
   const sql = `
-  SELECT 
-    u.id,
-    u.email,
-    u.name,
-    u.lastname,
-    u.image,
-    u.phone,
-    u.password,
-    u.session_token,
-	json_agg(
-		json_build_object(
-			'id' , r.id,
-			'name' , r.name,
-			'image' , r.image,
-			'route' , r.route
-		)
-	) AS roles
-  FROM users AS u
-	INNER JOIN user_has_roles AS uhr 
-	ON uhr.id_user = u.id
-	INNER JOIN roles AS r
-	ON r.id = uhr.id_rol
-  WHERE u.email = $1
-GROUP BY u.id`;
-  return db.oneOrNone(sql, email);
+    SELECT 
+      id,
+      matricula,
+      nombres,
+      apellido_paterno,
+      apellido_materno,
+      contraseña
+    FROM usuarios
+    WHERE matricula = $1
+  `;
+
+  return db.oneOrNone(sql, matricula);
 };
 
 User.findByUserId = (id) => {

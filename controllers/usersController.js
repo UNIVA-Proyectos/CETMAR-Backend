@@ -1,5 +1,6 @@
 const User = require("../models/user");
 const jwt = require("jsonwebtoken");
+const bcrypt = require("bcryptjs");
 const keys = require("../config/keys");
 
 module.exports = {
@@ -83,58 +84,61 @@ module.exports = {
     }
   },
 
-  async login(req, res, next) {
+  async login(req, res) {
     try {
-      const email = req.body.email;
-      const password = req.body.password;
-      const user = await User.findByEmail(email);
+      const { matricula, contraseña } = req.body;
+
+      // Buscar usuario en la base de datos
+      const user = await User.findByMatricula(matricula);
       if (!user) {
         return res.status(401).json({
           success: false,
-          message: "El email no existe",
+          message: "La matricula no existe",
         });
       }
-      if (User.isPasswordMatch(password, user.password)) {
-        const token = jwt.sign(
-          {
-            id: user.id,
-            email: user.email,
-          },
-          keys.secretOrKey,
-          {
-            expiresIn: 60 * 60 * 24, //1hora
-          }
-        );
-        const data = {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          lastname: user.lastname,
-          image: user.image,
-          phone: user.phone,
-          session_token: `JWT ${token}`,
-          roles: user.roles,
-        };
 
-        await User.updateToken(user.id, `JWT ${token}`);
-
-        return res.status(201).json({
-          success: true,
-          message: "El usuario se ha logueado correctamente",
-          data: data,
-        });
-      } else {
+      // Comparar contraseñas usando bcrypt
+      const isMatch = await bcrypt.compare(contraseña, user.contraseña);
+      if (!isMatch) {
         return res.status(401).json({
           success: false,
           message: "La contraseña no es correcta",
         });
       }
+
+      // Generar token JWT
+      const token = jwt.sign(
+        {
+          id: user.id,
+          matricula: user.matricula,
+          role: user.tipo_usuario, // Agregar rol para autorización
+        },
+        keys.secretOrKey,
+        { expiresIn: "1h" } // Expira en 1 hora
+      );
+
+      // Datos del usuario que se enviarán al frontend
+      const data = {
+        id: user.id,
+        name: user.nombres,
+        lastname: user.apellido_paterno,
+        matricula: user.matricula,
+        phone: user.telefono,
+        role: user.tipo_usuario, // Tipo de usuario
+      };
+
+      return res.status(200).json({
+        success: true,
+        message: "El usuario se ha logueado correctamente",
+        data,
+        token, // Enviar el token como respuesta
+      });
     } catch (error) {
-      console.log(`Error: ${error}`);
-      return res.status(501).json({
+      console.error(`Error: ${error}`);
+      return res.status(500).json({
         success: false,
         message: "Error al iniciar sesión",
-        error: error,
+        error: error.message,
       });
     }
   },

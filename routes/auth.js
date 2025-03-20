@@ -1,36 +1,25 @@
 const express = require('express');
-const cors = require('cors');
+const router = express.Router();
 const bcrypt = require('bcryptjs');
-const db = require('./config/config');
-require('dotenv').config();
+const jwt = require('jsonwebtoken');
+const db = require('../config/config');
 
-const app = express();
-
-// Middleware
-app.use(cors());
-app.use(express.json());
-
-// Ruta de login
-app.post('/api/users/login', async (req, res) => {
+router.post('/login', async (req, res) => {
     const { matricula, contraseña } = req.body;
-    console.log('Intento de login para matrícula:', matricula);
     
     try {
         // Buscar usuario por matrícula
         const user = await db.oneOrNone('SELECT * FROM usuarios WHERE matricula = $1', [matricula]);
         
         if (!user) {
-            console.log('Usuario no encontrado');
             return res.status(401).json({
                 success: false,
                 error: 'Credenciales inválidas'
             });
         }
 
-        console.log('Usuario encontrado, verificando contraseña');
         // Verificar contraseña
         const validPassword = await bcrypt.compare(contraseña, user.contraseña);
-        console.log('¿Contraseña válida?:', validPassword);
         
         if (!validPassword) {
             return res.status(401).json({
@@ -39,11 +28,21 @@ app.post('/api/users/login', async (req, res) => {
             });
         }
 
-        console.log('Login exitoso para usuario:', user.matricula);
+        // Generar token JWT
+        const token = jwt.sign(
+            { 
+                id: user.id,
+                matricula: user.matricula,
+                tipo_usuario: user.tipo_usuario
+            },
+            'tu_secreto_jwt', // TODO: Mover a variables de entorno
+            { expiresIn: '24h' }
+        );
+
         res.json({
             success: true,
+            token,
             user: {
-                id: user.id,
                 matricula: user.matricula,
                 nombres: user.nombres,
                 apellido_paterno: user.apellido_paterno,
@@ -60,9 +59,4 @@ app.post('/api/users/login', async (req, res) => {
     }
 });
 
-// Puerto
-const PORT = process.env.PORT || 3000;
-
-app.listen(PORT, () => {
-    console.log(`Aplicacion de Node.js ${process.pid} iniciada en puerto ${PORT}`);
-});
+module.exports = router;

@@ -13,7 +13,10 @@ app.use(
     secret: "09876",
     resave: false,
     saveUninitialized: true,
-    cookie: { secure: false },
+    cookie: { 
+      secure: false,
+      sameSite: 'lax'
+    },
   })
 );
 
@@ -29,7 +32,15 @@ app.use(
     extended: true,
   })
 );
-app.use(cors());
+
+// Configuración de CORS
+app.use(cors({
+  origin: 'http://localhost:3001', // URL del frontend
+  credentials: true, // Permite credenciales
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
 app.use(passport.initialize());
 app.use(passport.session());
 require("./config/passport")(passport);
@@ -49,8 +60,11 @@ server.listen(port, "0.0.0.0", function () {
 
 //ERROR HANDLING
 app.use((err, req, res, next) => {
-  console.log(err);
-  res.status(err.status || 500).send(err.stack);
+  console.error(err.stack);
+  res.status(err.status || 500).json({
+    success: false,
+    error: err.message || 'Error interno del servidor'
+  });
 });
 
 module.exports = {

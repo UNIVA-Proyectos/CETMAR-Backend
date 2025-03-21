@@ -20,25 +20,6 @@ FROM usuarios;
   return db.manyOrNone(sql);
 };
 
-User.findById = (id, callback) => {
-  const sql = `
-  SELECT 
-    id,
-    email,
-    name,
-    lastname,
-    image,
-    phone,
-    password,
-    session_token
-  FROM users
-  WHERE id = $1`;
-
-  return db.oneOrNone(sql, id).then((user) => {
-    callback(null, user);
-  });
-};
-
 User.findByMatricula = async (matricula) => {
   if (!matricula) {
     throw new Error("La matrícula es requerida para la consulta");
@@ -62,29 +43,15 @@ User.findByMatricula = async (matricula) => {
 User.findByUserId = (id) => {
   const sql = `
   SELECT 
-    u.id,
-    u.email,
-    u.name,
-    u.lastname,
-    u.image,
-    u.phone,
-    u.password,
-    u.session_token,
-	json_agg(
-		json_build_object(
-			'id' , r.id,
-			'name' , r.name,
-			'image' , r.image,
-			'route' , r.route
-		)
-	) AS roles
-  FROM users AS u
-	INNER JOIN user_has_roles AS uhr 
-	ON uhr.id_user = u.id
-	INNER JOIN roles AS r
-	ON r.id = uhr.id_rol
-  WHERE u.id = $1
-GROUP BY u.id`;
+      matricula,
+      nombres,
+      apellido_paterno,
+      apellido_materno,
+      contraseña,
+      correo,
+      tipo_usuario
+    FROM usuarios
+    WHERE id = $1`;
   return db.oneOrNone(sql, id);
 };
 
@@ -132,28 +99,6 @@ User.update = (user) => {
     user.image,
     new Date(),
   ]);
-};
-
-User.updateToken = (id, token) => {
-  const sql = `
-    UPDATE users
-      SET
-        session_token = $2
-      WHERE
-        id = $1
-    `;
-  return db.none(sql, [id, token]);
-};
-
-User.isPasswordMatch = (userPassword, hash) => {
-  const myPasswordHashed = crypto
-    .createHash("md5")
-    .update(userPassword)
-    .digest("hex");
-  if (myPasswordHashed === hash) {
-    return true;
-  }
-  return false;
 };
 
 module.exports = User;

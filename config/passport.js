@@ -1,10 +1,7 @@
 const JwtStrategy = require("passport-jwt").Strategy;
 const ExtractJwt = require("passport-jwt").ExtractJwt;
-const LocalStrategy = require('passport-local').Strategy;
-const bcrypt = require('bcryptjs');
 const User = require("../models/user");
 const Keys = require("./keys");
-const db = require('./config');
 
 module.exports = function (passport) {
   let opts = {};
@@ -24,42 +21,4 @@ module.exports = function (passport) {
       });
     })
   );
-
-  passport.use(
-    new LocalStrategy({
-      usernameField: 'matricula',
-      passwordField: 'contraseña'
-    },
-    async (matricula, contraseña, done) => {
-      try {
-        const user = await db.oneOrNone('SELECT * FROM usuarios WHERE matricula = $1', [matricula]);
-        
-        if (!user) {
-          return done(null, false, { message: 'Credenciales inválidas' });
-        }
-
-        const isMatch = await bcrypt.compare(contraseña, user.contraseña);
-        if (!isMatch) {
-          return done(null, false, { message: 'Credenciales inválidas' });
-        }
-
-        return done(null, user);
-      } catch (error) {
-        return done(error);
-      }
-    })
-  );
-
-  passport.serializeUser((user, done) => {
-    done(null, user.id);
-  });
-
-  passport.deserializeUser(async (id, done) => {
-    try {
-      const user = await db.oneOrNone('SELECT * FROM usuarios WHERE id = $1', [id]);
-      done(null, user);
-    } catch (error) {
-      done(error);
-    }
-  });
 };

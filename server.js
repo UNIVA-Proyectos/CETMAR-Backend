@@ -1,68 +1,59 @@
-const express = require('express');
-const cors = require('cors');
-const bcrypt = require('bcryptjs');
-const db = require('./config/config');
-require('dotenv').config();
-
+const express = require("express");
 const app = express();
+const http = require("http");
+const server = http.createServer(app);
+const logger = require("morgan");
+const cors = require("cors");
+const passport = require("passport");
+const session = require("express-session");
 
-// Middleware
-app.use(cors());
+// Configura express-session
+app.use(
+  session({
+    secret: "09876",
+    resave: false,
+    saveUninitialized: true,
+    cookie: { secure: false },
+  })
+);
+
+//Instanciando rutas
+const users = require("./routes/usersRoutes");
+
+const port = process.env.PORT || 3000;
+
+app.use(logger("dev"));
 app.use(express.json());
+app.use(
+  express.urlencoded({
+    extended: true,
+  })
+);
+app.use(cors());
+app.use(passport.initialize());
+app.use(passport.session());
+require("./config/passport")(passport);
 
-// Ruta de login
-app.post('/api/users/login', async (req, res) => {
-    const { matricula, contraseña } = req.body;
-    console.log('Intento de login para matrícula:', matricula);
-    
-    try {
-        // Buscar usuario por matrícula
-        const user = await db.oneOrNone('SELECT * FROM usuarios WHERE matricula = $1', [matricula]);
-        
-        if (!user) {
-            console.log('Usuario no encontrado');
-            return res.status(401).json({
-                success: false,
-                error: 'Credenciales inválidas'
-            });
-        }
+app.disable("x-powered-by");
 
-        console.log('Usuario encontrado, verificando contraseña');
-        // Verificar contraseña
-        const validPassword = await bcrypt.compare(contraseña, user.contraseña);
-        console.log('¿Contraseña válida?:', validPassword);
-        
-        if (!validPassword) {
-            return res.status(401).json({
-                success: false,
-                error: 'Credenciales inválidas'
-            });
-        }
+app.set("port", port);
 
-        console.log('Login exitoso para usuario:', user.matricula);
-        res.json({
-            success: true,
-            user: {
-                id: user.id,
-                matricula: user.matricula,
-                nombres: user.nombres,
-                apellido_paterno: user.apellido_paterno,
-                tipo_usuario: user.tipo_usuario
-            }
-        });
+//Llamando a las rutas
+users(app);
 
-    } catch (error) {
-        console.error('Error en login:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Error en el servidor'
-        });
-    }
+server.listen(port, "0.0.0.0", function () {
+  console.log(
+    "Aplicacion de Node.js " + process.pid + " iniciada en puerto " + port
+  );
 });
 
-// Puerto
-const PORT = process.env.PORT || 3000;
-
-app.listen(PORT, () => {
-    console.log(`Aplicacion de Node.js ${process.pid} iniciada en puerto ${PORT}`);
+//ERROR HANDLING
+app.use((err, req, res, next) => {
+  console.log(err);
+  res.status(err.status || 500).send(err.stack);
 });
+
+module.exports = {
+  app: app,
+  server: server,
+};

@@ -19,10 +19,9 @@ app.use(
     },
   })
 );
-
 //Instanciando rutas
 const users = require("./routes/usersRoutes");
-
+const docentesRoutes = require("./routes/docentesRouters");
 const port = process.env.PORT || 3000;
 
 app.use(logger("dev"));
@@ -51,7 +50,7 @@ app.set("port", port);
 
 //Llamando a las rutas
 users(app);
-
+app.use("/api/docentes", docentesRoutes);  
 server.listen(port, "0.0.0.0", function () {
   console.log(
     "Aplicacion de Node.js " + process.pid + " iniciada en puerto " + port

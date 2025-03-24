@@ -55,35 +55,7 @@ module.exports = {
     }
   },
 
-  async login(req, res) {
-    try {
-      const { matricula, password } = req.body;
 
-      const docente = await Docente.findByMatricula(matricula);
-      if (!docente) {
-        return res.status(401).json({ success: false, message: "Matrícula incorrecta" });
-      }
-
-      const isMatch = await bcrypt.compare(password, docente.password);
-      if (!isMatch) {
-        return res.status(401).json({ success: false, message: "Contraseña incorrecta" });
-      }
-
-      const token = jwt.sign(
-        { id: docente.id, matricula: docente.matricula, role: "docente" },
-        keys.secretOrKey,
-        { expiresIn: "1h" }
-      );
-
-      return res.status(200).json({ success: true, message: "Inicio de sesión exitoso", token });
-    } catch (error) {
-      return res.status(500).json({ success: false, message: "Error al iniciar sesión" });
-    }
-  },
-
-  async logout(req, res) {
-    return res.status(200).json({ success: true, message: "Sesión cerrada correctamente" });
-  },
 
   async update(req, res) {
     try {

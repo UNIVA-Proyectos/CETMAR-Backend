@@ -1,29 +1,32 @@
-const express = require("express");
 const passport = require("passport");
-const router = express.Router();
 const docentesControllers = require("../controllers/docentesControllers");
 
-// Obtener todos los docentes
-router.get("/getAll", docentesControllers.getAllDocentes);
+module.exports = (app) => {
+  // Obtener todos los docentes
+  app.get(
+    "/docentes/getAll",
+    passport.authenticate("jwt", { session: false }),
+    docentesControllers.getAllDocentes
+  );
 
-//Obtener un docente por ID sin JWT (solo para pruebas)
-//router.get("/findById/:id", docentesControllers.findById);
-//Obtener un docente por ID (jwt)
-router.get(
-"/findById/:id",
- passport.authenticate("jwt", { session: false }),
- docentesControllers.findById
-);
+  //Obtener un docente por ID (jwt)
+  app.get(
+    "/docente/findById/:id",
+    passport.authenticate("jwt", { session: false }),
+    docentesControllers.findById
+  );
 
-// Crear un nuevo docente
-router.post("/create", docentesControllers.register);
+  // Crear un nuevo docente
+  app.post(
+    "/docente/create",
+    passport.authenticate("jwt", { session: false }),
+    docentesControllers.register
+  );
 
-
-// Actualizar datos de un docente
-router.put(
-  "/update",
-  passport.authenticate("jwt", { session: false }),
-  docentesControllers.update
-);
-
-module.exports = router;
+  // Actualizar datos de un docente
+  app.put(
+    "/docente/update",
+    passport.authenticate("jwt", { session: false }),
+    docentesControllers.update
+  );
+};

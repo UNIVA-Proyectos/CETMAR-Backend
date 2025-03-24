@@ -13,15 +13,16 @@ app.use(
     secret: "09876",
     resave: false,
     saveUninitialized: true,
-    cookie: { 
+    cookie: {
       secure: false,
-      sameSite: 'lax'
+      sameSite: "lax",
     },
   })
 );
 //Instanciando rutas
 const users = require("./routes/usersRoutes");
-const docentesRoutes = require("./routes/docentesRouters");
+const docentes = require("./routes/docentesRouters");
+
 const port = process.env.PORT || 3000;
 
 app.use(logger("dev"));
@@ -33,12 +34,14 @@ app.use(
 );
 
 // Configuración de CORS
-app.use(cors({
-  origin: 'http://localhost:3001', // URL del frontend
-  credentials: true, // Permite credenciales
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
+app.use(
+  cors({
+    origin: "http://localhost:3001", // URL del frontend
+    credentials: true, // Permite credenciales
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
 
 app.use(passport.initialize());
 app.use(passport.session());
@@ -50,7 +53,8 @@ app.set("port", port);
 
 //Llamando a las rutas
 users(app);
-app.use("/api/docentes", docentesRoutes);  
+docentes(app);
+
 server.listen(port, "0.0.0.0", function () {
   console.log(
     "Aplicacion de Node.js " + process.pid + " iniciada en puerto " + port
@@ -62,7 +66,7 @@ app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(err.status || 500).json({
     success: false,
-    error: err.message || 'Error interno del servidor'
+    error: err.message || "Error interno del servidor",
   });
 });
 

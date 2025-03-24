@@ -1,7 +1,5 @@
 const Docente = require("../models/Docente");
-const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
-const keys = require("../config/keys");
 
 module.exports = {
   async getAllDocentes(req, res, next) {
@@ -54,8 +52,6 @@ module.exports = {
       });
     }
   },
-
-
 
   async update(req, res) {
     try {

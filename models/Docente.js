@@ -11,7 +11,10 @@ Docente.findById = (id) => {
 };
 
 Docente.findByMatricula = (matricula) => {
-  return db.oneOrNone("SELECT * FROM docentes WHERE usuario_id = (SELECT id FROM usuarios WHERE matricula = $1);", [matricula]);
+  return db.oneOrNone(
+    "SELECT * FROM docentes WHERE usuario_id = (SELECT id FROM usuarios WHERE matricula = $1);",
+    [matricula]
+  );
 };
 
 Docente.create = (docente) => {

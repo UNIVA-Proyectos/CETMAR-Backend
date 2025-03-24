@@ -111,7 +111,7 @@ module.exports = {
         {
           id: user.id,
           matricula: user.matricula,
-          role: user.tipo_usuario, // Agregar rol para autorización
+          role: user.tipo_usuario,
         },
         keys.secretOrKey,
         { expiresIn: "1h" } // Expira en 1 hora
@@ -120,11 +120,12 @@ module.exports = {
       // Datos del usuario que se enviarán al frontend
       const data = {
         id: user.id,
-        name: user.nombres,
-        lastname: user.apellido_paterno,
+        nombre: user.nombres,
+        apellido_paterno: user.apellido_paterno,
+        apellido_materno: user.apellido_materno,
         matricula: user.matricula,
-        phone: user.telefono,
-        role: user.tipo_usuario, // Tipo de usuario
+        telefono: user.telefono,
+        rol: user.tipo_usuario, // Tipo de usuario
       };
 
       return res.status(200).json({
@@ -157,6 +158,34 @@ module.exports = {
         success: false,
         message: "Error al cerrar sesion",
         error: error,
+      });
+    }
+  },
+
+  async getProfile(req, res) {
+    try {
+      const { id, role } = req.user; // Datos del token
+
+      // Obtener perfil según el rol
+      const profileData = await User.getProfileByRole(id, role);
+      if (!profileData) {
+        return res.status(404).json({
+          success: false,
+          message: "Perfil no encontrado",
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "Perfil obtenido correctamente",
+        data: profileData,
+      });
+    } catch (error) {
+      console.error(`Error: ${error}`);
+      return res.status(500).json({
+        success: false,
+        message: "Error al obtener el perfil",
+        error: error.message,
       });
     }
   },

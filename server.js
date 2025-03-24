@@ -21,7 +21,7 @@ app.use(
 );
 //Instanciando rutas
 const users = require("./routes/usersRoutes");
-const docentes = require("./routes/docentesRouters");
+const docentes = require("./routes/docentesRoutes");
 
 const port = process.env.PORT || 3000;
 

@@ -111,7 +111,7 @@ module.exports = {
         {
           id: user.id,
           matricula: user.matricula,
-          role: user.tipo_usuario,
+          role: user.role,
         },
         keys.secretOrKey,
         { expiresIn: "1h" } // Expira en 1 hora
@@ -125,7 +125,7 @@ module.exports = {
         apellido_materno: user.apellido_materno,
         matricula: user.matricula,
         telefono: user.telefono,
-        rol: user.tipo_usuario, // Tipo de usuario
+        rol: user.role, // Tipo de usuario
       };
 
       return res.status(200).json({

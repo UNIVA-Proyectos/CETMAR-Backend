@@ -32,7 +32,9 @@ User.findByMatricula = async (matricula) => {
       nombres,
       apellido_paterno,
       apellido_materno,
-      contraseña
+      contraseña,
+      tipo_usuario AS role,
+      telefono
     FROM usuarios
     WHERE matricula = $1
   `;

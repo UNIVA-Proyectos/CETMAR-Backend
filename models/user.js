@@ -146,7 +146,11 @@ User.getProfileByRole = (id, role) => {
     WHERE u.id = $1
     GROUP BY u.id;
     `;
-  } else if (role === "directivo" || role === "administrativo") {
+  } else if (
+    role === "directivo" ||
+    role === "administrativo" ||
+    role === "superadmin"
+  ) {
     sql += `
       u.tipo_usuario
     FROM usuarios u

@@ -2,6 +2,7 @@ const User = require("../models/user");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const keys = require("../config/keys");
+const db = require("../config/config");
 
 module.exports = {
   async getAll(req, res, next) {
@@ -35,25 +36,72 @@ module.exports = {
 
   async register(req, res, next) {
     try {
-      const user = req.body;
-      const data = await User.create(user);
+      const {
+        matricula,
+        nombre,
+        apellido_paterno,
+        apellido_materno,
+        correo,
+        contraseña,
+        tipo_usuario,
+        telefono,
+      } = req.body;
 
-      await rol.create(data.id, 1); //Rol por defecto CLIENTE
+      // Validar datos requeridos
+      if (
+        !matricula ||
+        !nombre ||
+        !apellido_paterno ||
+        !correo ||
+        !contraseña ||
+        !tipo_usuario
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Todos los campos requeridos deben ser proporcionados.",
+        });
+      }
+
+      // Verificar si el usuario ya existe
+      const existingUser = await db.oneOrNone(
+        "SELECT id FROM usuarios WHERE matricula = $1 OR correo = $2",
+        [matricula, correo]
+      );
+
+      if (existingUser) {
+        return res.status(409).json({
+          success: false,
+          message: "El usuario con esta matrícula o correo ya está registrado.",
+        });
+      }
+
+      // Crear el usuario
+      const newUser = await User.create({
+        matricula,
+        nombre,
+        apellido_paterno,
+        apellido_materno,
+        correo,
+        contraseña,
+        tipo_usuario,
+        telefono,
+      });
 
       return res.status(201).json({
         success: true,
-        message: "El registro se realizo correctamente",
-        data: data.id,
+        message: "El registro se realizó correctamente",
+        data: newUser.id,
       });
     } catch (error) {
-      console.log(`Error: ${error}`);
-      return res.status(501).json({
+      console.error(`Error en registro: ${error.message}`);
+      return res.status(500).json({
         success: false,
         message: "Error al registrar usuario",
-        error: error,
+        error: error.message,
       });
     }
   },
+
   async update(req, res, next) {
     try {
       const user = JSON.parse(req.body.user);
@@ -120,7 +168,7 @@ module.exports = {
       // Datos del usuario que se enviarán al frontend
       const data = {
         id: user.id,
-        nombre: user.nombres,
+        nombre: user.nombre,
         apellido_paterno: user.apellido_paterno,
         apellido_materno: user.apellido_materno,
         matricula: user.matricula,

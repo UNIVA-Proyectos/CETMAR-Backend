@@ -1,12 +1,12 @@
 const db = require("../config/config");
-const crypto = require("crypto");
+const bcrypt = require("bcryptjs");
 
 const User = {};
 
 User.getAll = () => {
   const sql = `SELECT 
     id,
-    TRIM(nombres) AS nombres,
+    TRIM(nombre) AS nombre,
     TRIM(apellido_paterno) AS apellido_paterno,
     TRIM(apellido_materno) AS apellido_materno,
     TRIM(matricula) AS matricula,
@@ -29,7 +29,7 @@ User.findByMatricula = async (matricula) => {
     SELECT 
       id,
       matricula,
-      nombres,
+      nombre,
       apellido_paterno,
       apellido_materno,
       contraseña,
@@ -47,7 +47,7 @@ User.findByUserId = (id) => {
   SELECT 
     id,
     matricula,
-    nombres,
+    nombre,
     apellido_paterno,
     apellido_materno,
     contraseña,
@@ -59,27 +59,26 @@ User.findByUserId = (id) => {
   return db.oneOrNone(sql, id);
 };
 
-User.create = (user) => {
-  const myPasswordHashed = crypto
-    .createHash("md5")
-    .update(user.password)
-    .digest("hex");
+User.create = async (user) => {
+  // Generar hash seguro para la contraseña
+  const hashedPassword = await bcrypt.hash(user.contraseña, 10);
 
-  user.password = myPasswordHashed;
   const sql = `
-    INSERT INTO users (email, name, lastname , phone, image,  password, created_at, updated_at)
-    VALUES($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id
-    `;
+    INSERT INTO usuarios 
+      (matricula, nombre, apellido_paterno, apellido_materno, correo, contraseña, tipo_usuario, telefono, fecha_creacion)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW()) 
+    RETURNING id;
+  `;
 
   return db.oneOrNone(sql, [
-    user.email,
-    user.name,
-    user.lastname,
-    user.phone,
-    user.image,
-    user.password,
-    new Date(),
-    new Date(),
+    user.matricula,
+    user.nombre,
+    user.apellido_paterno,
+    user.apellido_materno,
+    user.correo,
+    hashedPassword,
+    user.tipo_usuario, // Puede ser "alumno", "docente", etc.
+    user.telefono || null, // Si el teléfono es opcional
   ]);
 };
 
@@ -107,7 +106,7 @@ User.update = (user) => {
 User.getProfileByRole = (id, role) => {
   let sql = `
     SELECT 
-      u.id, u.nombres, u.apellido_paterno, u.apellido_materno,
+      u.id, u.nombre, u.apellido_paterno, u.apellido_materno,
   `;
 
   // Agregar campos específicos según el rol

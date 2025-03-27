@@ -166,7 +166,7 @@ module.exports = {
       );
 
       // Datos del usuario que se enviarán al frontend
-      const data = {
+      const dataUser = {
         id: user.id,
         nombre: user.nombre,
         apellido_paterno: user.apellido_paterno,
@@ -179,7 +179,7 @@ module.exports = {
       return res.status(200).json({
         success: true,
         message: "El usuario se ha logueado correctamente",
-        data,
+        dataUser,
         token, // Enviar el token como respuesta
       });
     } catch (error) {

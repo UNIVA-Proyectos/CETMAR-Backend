@@ -3,7 +3,7 @@ const passport = require("passport");
 
 module.exports = (app) => {
   //Obtener datos
-  app.get("api/users/getAll", UsersController.getAll);
+  app.get("/api/users/getAll", UsersController.getAll);
   app.get(
     "/api/users/findById/:id",
     passport.authenticate("jwt", { session: false }),

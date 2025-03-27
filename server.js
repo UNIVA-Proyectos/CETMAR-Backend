@@ -22,6 +22,7 @@ app.use(
 //Instanciando rutas
 const users = require("./routes/usersRoutes");
 const docentes = require("./routes/docentesRoutes");
+const excel = require("./routes/importRoutes");
 
 const port = process.env.PORT || 3000;
 
@@ -54,6 +55,7 @@ app.set("port", port);
 //Llamando a las rutas
 users(app);
 docentes(app);
+excel(app);
 
 server.listen(port, "0.0.0.0", function () {
   console.log(

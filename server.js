@@ -23,6 +23,7 @@ app.use(
 const users = require("./routes/usersRoutes");
 const docentes = require("./routes/docentesRoutes");
 const excel = require("./routes/importRoutes");
+const alumno = require("./routes/alumnoRoutes");
 
 const port = process.env.PORT || 3000;
 
@@ -56,6 +57,7 @@ app.set("port", port);
 users(app);
 docentes(app);
 excel(app);
+alumno(app);
 
 server.listen(port, "0.0.0.0", function () {
   console.log(

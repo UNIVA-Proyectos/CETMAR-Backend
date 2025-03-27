@@ -57,7 +57,7 @@ END $$;
 -- Tabla de Usuarios (Base para todos los roles)
 CREATE TABLE Usuarios (
     id SERIAL PRIMARY KEY,
-    nombres VARCHAR(255) NOT NULL,
+    nombre VARCHAR(255) NOT NULL,
     apellido_paterno VARCHAR(100) NOT NULL,
 	apellido_materno VARCHAR(100) NOT NULL,
     matricula VARCHAR(20) UNIQUE NOT NULL,
@@ -90,7 +90,7 @@ CREATE TABLE Alumnos (
 	foto_perfil_url TEXT,
     curp VARCHAR(18) UNIQUE NOT NULL,
     generacion VARCHAR(9) NOT NULL, -- Ejemplo: "2023-2026"
-    fecha_ingreso DATE NOT NULL, -- Nueva columna para calcular el semestre
+    fecha_ingreso DATE NOT NULL, 
     semestre INT NOT NULL DEFAULT 1 
 );
 -- Tabla de Padres (Sin relación con Usuarios)

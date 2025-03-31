@@ -40,7 +40,7 @@ users(app);
 docentes(app);
 excel(app);
 alumno(app);
-app.use("/api/asistencias", asistenciasRoutes);
+asistenciasRoutes(app);
 
 
 server.listen(port, "0.0.0.0", function () {

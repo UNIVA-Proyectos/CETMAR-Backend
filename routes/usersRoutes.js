@@ -1,19 +1,23 @@
-const express = require("express");
-const app = express.Router();
 const UsersController = require("../controllers/usersController");
-const passport = require("passport");
+const authenticate = require("../middleware/authenticate");
 
-app.get("/api/users/", UsersController.getAll);
-app.get("/api/users/:id", UsersController.findById);
-app.post("/api/users/create", UsersController.register);
-app.post("/api/users/login", UsersController.login);
-app.post("/api/users/logout", UsersController.logout);
-app.put("/api/users/update", UsersController.update);
-app.get("/api/users/profile/:id/:role", UsersController.getProfile);
-app.get(
-  "/api/users/verify-session",
-  passport.authenticate("jwt", { session: false }),
-  UsersController.verifySession
-);
+module.exports = (app) => {
+  //Obtener datos
+  app.get("/api/users/getAll", UsersController.getAll);
+  app.get("/api/users/findById/:id", authenticate, UsersController.findById);
+  app.get("/api/users/profile", authenticate, UsersController.getProfile);
+  app.get(
+    "/api/users/verify-session",
+    authenticate,
+    UsersController.verifySession
+  );
 
-module.exports = app;
+  // GUARDAR DATOS
+  app.post("/api/users/create", authenticate, UsersController.register);
+
+  app.post("/api/users/login", UsersController.login);
+  app.post("/api/users/logout", UsersController.logout);
+
+  //ACTUALIZAR DATOS
+  app.put("/api/users/update", authenticate, UsersController.update);
+};

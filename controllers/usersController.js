@@ -1,8 +1,8 @@
 const User = require("../models/user");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
-const keys = require("../config/keys");
 const db = require("../config/config");
+require("dotenv").config();
 
 module.exports = {
   async getAll(req, res, next) {
@@ -143,7 +143,7 @@ module.exports = {
           matricula: user.matricula,
           tipo_usuario: user.tipo_usuario,
         },
-        keys.secretOrKey,
+        process.env.JWT_SECRET,
         { expiresIn: "1h" } // Expira en 1 hora
       );
 
@@ -160,12 +160,12 @@ module.exports = {
         tipo_usuario: user.tipo_usuario,
       };
 
-      console.log("DEBUG - Datos a enviar:", data);
+      console.log("DEBUG - Datos a enviar:", dataUser);
 
       return res.status(200).json({
         success: true,
         message: "El usuario se ha logueado correctamente",
-        data,
+        dataUser,
         token,
       });
     } catch (error) {
@@ -191,7 +191,7 @@ module.exports = {
         });
       }
 
-      const decoded = jwt.verify(token, keys.secretOrKey);
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
       console.log("DEBUG - Token decodificado:", decoded);
 
       const user = await User.findByMatricula(decoded.matricula);
@@ -248,17 +248,26 @@ module.exports = {
 
   async getProfile(req, res) {
     try {
-      const id = req.params.id;
-      const role = req.params.role;
+      const { id, tipo_usuario } = req.user; // Datos del token
+      console.log("DEBUG - ID y rol del token:", id, tipo_usuario);
 
-      const data = await User.getProfileByRole(id, role);
+      // Obtener perfil según el rol
+      const profileData = await User.getProfileByRole(id, tipo_usuario);
+      if (!profileData) {
+        return res.status(404).json({
+          success: false,
+          message: "Perfil no encontrado",
+        });
+      }
+
       return res.status(200).json({
         success: true,
-        data,
+        message: "Perfil obtenido correctamente",
+        data: profileData,
       });
     } catch (error) {
-      console.log(`Error: ${error}`);
-      return res.status(501).json({
+      console.error(`Error: ${error}`);
+      return res.status(500).json({
         success: false,
         message: "Error al obtener el perfil",
         error: error.message,

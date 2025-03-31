@@ -1,32 +1,34 @@
-const passport = require("passport");
+const express = require("express");
+const router = express.Router();
 const docentesControllers = require("../controllers/docentesControllers");
+const passport = require("passport");
 
-module.exports = (app) => {
-  // Obtener todos los docentes
-  app.get(
-    "/api/docentes/getAll",
-    passport.authenticate("jwt", { session: false }),
-    docentesControllers.getAllDocentes
-  );
+// Obtener todos los docentes
+router.get(
+  "/api/docentes/getAll",
+  passport.authenticate("jwt", { session: false }),
+  docentesControllers.getAllDocentes
+);
 
-  //Obtener un docente por ID (jwt)
-  app.get(
-    "/api/docente/findById/:id",
-    passport.authenticate("jwt", { session: false }),
-    docentesControllers.findById
-  );
+//Obtener un docente por ID (jwt)
+router.get(
+  "/api/docente/findById/:id",
+  passport.authenticate("jwt", { session: false }),
+  docentesControllers.findById
+);
 
-  // Crear un nuevo docente
-  app.post(
-    "/api/docente/create",
-    passport.authenticate("jwt", { session: false }),
-    docentesControllers.register
-  );
+// Crear un nuevo docente
+router.post(
+  "/api/docente/create",
+  passport.authenticate("jwt", { session: false }),
+  docentesControllers.register
+);
 
-  // Actualizar datos de un docente
-  app.put(
-    "/api/docente/update",
-    passport.authenticate("jwt", { session: false }),
-    docentesControllers.update
-  );
-};
+// Actualizar datos de un docente
+router.put(
+  "/api/docente/update",
+  passport.authenticate("jwt", { session: false }),
+  docentesControllers.update
+);
+
+module.exports = router;

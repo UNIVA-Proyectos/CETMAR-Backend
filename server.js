@@ -19,6 +19,7 @@ app.use(
     },
   })
 );
+
 //Instanciando rutas
 const users = require("./routes/usersRoutes");
 const docentes = require("./routes/docentesRoutes");

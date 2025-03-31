@@ -1,5 +1,5 @@
-const passport = require("passport");
 const docentesControllers = require("../controllers/docentesControllers");
+const passport = require("passport");
 
 module.exports = (app) => {
   // Obtener todos los docentes

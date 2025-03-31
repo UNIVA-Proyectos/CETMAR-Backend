@@ -1,8 +1,8 @@
 const User = require("../models/user");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
-const keys = require("../config/keys");
 const db = require("../config/config");
+require("dotenv").config();
 
 module.exports = {
   async getAll(req, res, next) {
@@ -52,51 +52,44 @@ module.exports = {
         !matricula ||
         !nombre ||
         !apellido_paterno ||
+        !apellido_materno ||
         !correo ||
         !contraseña ||
         !tipo_usuario
       ) {
         return res.status(400).json({
           success: false,
-          message: "Todos los campos requeridos deben ser proporcionados.",
+          message: "Todos los campos son requeridos",
         });
       }
 
-      // Verificar si el usuario ya existe
-      const existingUser = await db.oneOrNone(
-        "SELECT id FROM usuarios WHERE matricula = $1 OR correo = $2",
-        [matricula, correo]
-      );
+      // Hash de la contraseña
+      const salt = await bcrypt.genSalt(10);
+      const hash = await bcrypt.hash(contraseña, salt);
 
-      if (existingUser) {
-        return res.status(409).json({
-          success: false,
-          message: "El usuario con esta matrícula o correo ya está registrado.",
-        });
-      }
-
-      // Crear el usuario
-      const newUser = await User.create({
+      const user = {
         matricula,
         nombre,
         apellido_paterno,
         apellido_materno,
         correo,
-        contraseña,
+        contraseña: hash,
         tipo_usuario,
         telefono,
-      });
+      };
+
+      const data = await User.create(user);
 
       return res.status(201).json({
         success: true,
         message: "El registro se realizó correctamente",
-        data: newUser.id,
+        data: data,
       });
     } catch (error) {
-      console.error(`Error en registro: ${error.message}`);
-      return res.status(500).json({
+      console.log(`Error: ${error}`);
+      return res.status(501).json({
         success: false,
-        message: "Error al registrar usuario",
+        message: "Error al registrar el usuario",
         error: error.message,
       });
     }
@@ -104,30 +97,17 @@ module.exports = {
 
   async update(req, res, next) {
     try {
-      const user = JSON.parse(req.body.user);
-      console.log(`Datos enviados del usuario: ${JSON.stringify(user)}`);
-      const files = req.files;
-      if (files.length > 0) {
-        const pathImage = `image_${Date.now()}`; //NOMBRE DEL ARVHIVO A ALMACENAR
-        const url = await storage(files[0], pathImage);
-
-        if (url != undefined && url != null) {
-          user.image = url;
-        }
-      }
-
+      const user = req.body;
       await User.update(user);
-
-      return res.status(201).json({
+      return res.status(200).json({
         success: true,
-        message: "Los datos del usuario han sido actualizados correctamente",
+        message: "Los datos fueron actualizados correctamente",
       });
     } catch (error) {
       console.log(`Error: ${error}`);
       return res.status(501).json({
         success: false,
-        message: "Error al actualizar los datos del usuario",
-        error: error,
+        message: "Error al actualizar el usuario",
       });
     }
   },
@@ -138,6 +118,8 @@ module.exports = {
 
       // Buscar usuario en la base de datos
       const user = await User.findByMatricula(matricula);
+      console.log("DEBUG - Usuario encontrado:", user);
+
       if (!user) {
         return res.status(401).json({
           success: false,
@@ -159,11 +141,13 @@ module.exports = {
         {
           id: user.id,
           matricula: user.matricula,
-          role: user.role,
+          tipo_usuario: user.tipo_usuario,
         },
-        keys.secretOrKey,
+        process.env.JWT_SECRET,
         { expiresIn: "1h" } // Expira en 1 hora
       );
+
+      console.log("DEBUG - Token generado:", jwt.decode(token));
 
       // Datos del usuario que se enviarán al frontend
       const dataUser = {
@@ -173,14 +157,16 @@ module.exports = {
         apellido_materno: user.apellido_materno,
         matricula: user.matricula,
         telefono: user.telefono,
-        rol: user.role, // Tipo de usuario
+        tipo_usuario: user.tipo_usuario,
       };
+
+      console.log("DEBUG - Datos a enviar:", dataUser);
 
       return res.status(200).json({
         success: true,
         message: "El usuario se ha logueado correctamente",
         dataUser,
-        token, // Enviar el token como respuesta
+        token,
       });
     } catch (error) {
       console.error(`Error: ${error}`);
@@ -192,30 +178,81 @@ module.exports = {
     }
   },
 
+  async verifySession(req, res) {
+    try {
+      const token = req.headers.authorization?.split(" ")[1];
+      console.log("DEBUG - Token recibido:", token);
+
+      if (!token) {
+        console.log("DEBUG - No se proporcionó token");
+        return res.status(401).json({
+          success: false,
+          message: "No se proporcionó token de autenticación",
+        });
+      }
+
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      console.log("DEBUG - Token decodificado:", decoded);
+
+      const user = await User.findByMatricula(decoded.matricula);
+      console.log("DEBUG - Usuario encontrado:", user ? "Sí" : "No");
+
+      if (!user) {
+        console.log("DEBUG - Usuario no encontrado");
+        return res.status(401).json({
+          success: false,
+          message: "Usuario no encontrado",
+        });
+      }
+
+      const data = {
+        id: user.id,
+        nombre: user.nombre,
+        apellido_paterno: user.apellido_paterno,
+        apellido_materno: user.apellido_materno,
+        matricula: user.matricula,
+        telefono: user.telefono,
+        tipo_usuario: user.tipo_usuario,
+      };
+
+      console.log("DEBUG - Enviando respuesta exitosa");
+      return res.status(200).json({
+        success: true,
+        message: "Sesión válida",
+        data,
+      });
+    } catch (error) {
+      console.error("DEBUG - Error en verifySession:", error.message);
+      return res.status(401).json({
+        success: false,
+        message: "Sesión inválida",
+        error: error.message,
+      });
+    }
+  },
+
   async logout(req, res, next) {
     try {
-      const id = req.body.id;
-      await User.updateToken(id, null);
-      return res.status(201).json({
+      return res.status(200).json({
         success: true,
-        message: "Se ha cerrado la sesion correctamente",
+        message: "La sesión se ha cerrado correctamente",
       });
-    } catch (e) {
+    } catch (error) {
       console.log(`Error: ${error}`);
       return res.status(501).json({
         success: false,
-        message: "Error al cerrar sesion",
-        error: error,
+        message: "Error al cerrar la sesión",
       });
     }
   },
 
   async getProfile(req, res) {
     try {
-      const { id, role } = req.user; // Datos del token
+      const { id, tipo_usuario } = req.user; // Datos del token
+      console.log("DEBUG - ID y rol del token:", id, tipo_usuario);
 
       // Obtener perfil según el rol
-      const profileData = await User.getProfileByRole(id, role);
+      const profileData = await User.getProfileByRole(id, tipo_usuario);
       if (!profileData) {
         return res.status(404).json({
           success: false,

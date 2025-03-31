@@ -19,6 +19,7 @@ app.use(
     },
   })
 );
+
 //Instanciando rutas
 const users = require("./routes/usersRoutes");
 const docentes = require("./routes/docentesRoutes");
@@ -51,9 +52,9 @@ app.disable("x-powered-by");
 
 app.set("port", port);
 
-//Llamando a las rutas
-users(app);
-docentes(app);
+// Usando las rutas
+app.use(users);
+app.use(docentes);
 
 server.listen(port, "0.0.0.0", function () {
   console.log(

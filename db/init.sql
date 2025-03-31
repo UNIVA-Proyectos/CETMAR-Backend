@@ -57,7 +57,7 @@ END $$;
 -- Tabla de Usuarios (Base para todos los roles)
 CREATE TABLE Usuarios (
     id SERIAL PRIMARY KEY,
-    nombres VARCHAR(255) NOT NULL,
+    nombre VARCHAR(255) NOT NULL,
     apellido_paterno VARCHAR(100) NOT NULL,
 	apellido_materno VARCHAR(100) NOT NULL,
     matricula VARCHAR(20) UNIQUE NOT NULL,

@@ -12,7 +12,7 @@ function requireRole(allowedRoles) {
     }
 
     // Verifica si el rol del usuario está dentro de los permitidos
-    if (!allowedRoles.includes(req.user.rol)) {
+    if (!allowedRoles.includes(req.user.tipo_usuario)) {
       return res.status(403).json({
         success: false,
         message: "Acceso denegado: Privilegios insuficientes",

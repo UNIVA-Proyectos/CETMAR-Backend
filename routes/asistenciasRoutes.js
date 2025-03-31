@@ -6,6 +6,7 @@ module.exports = (app) => {
   app.post(
     "/api/asistencia/registrar",
     authenticate,
+    requireRole("docente"),
     AsistenciasController.registrarAsistencia
   );
 

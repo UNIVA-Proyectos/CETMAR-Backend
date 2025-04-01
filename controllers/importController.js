@@ -1,26 +1,39 @@
-const db = require("../config/config");
+const fs = require("fs");
 const xlsx = require("xlsx");
 const bcrypt = require("bcryptjs");
-const fs = require("fs"); // Para eliminar el archivo después de usarlo
+const db = require("../config/config");
 
+// 📌 Función para generar la abreviatura de la carrera
+function generarAbreviatura(nombreCarrera) {
+  const partes = nombreCarrera.toUpperCase().split(" ");
+  if (partes.length < 3 || partes[0] !== "TÉCNICO" || partes[1] !== "EN") {
+    return nombreCarrera.substring(0, 3).toUpperCase(); // Fallback
+  }
+  return partes
+    .slice(2)
+    .map((palabra) => palabra[0])
+    .join(""); // Toma iniciales
+}
+
+// 📌 Importación de alumnos desde un archivo Excel
 async function importarAlumnosDesdeExcel(rutaArchivo) {
   const workbook = xlsx.readFile(rutaArchivo);
-  const sheet = workbook.Sheets[workbook.SheetNames[0]];
-  const alumnos = xlsx.utils.sheet_to_json(sheet);
+  const hoja = workbook.Sheets[workbook.SheetNames[0]];
+  const alumnos = xlsx.utils.sheet_to_json(hoja);
 
   try {
     await db.tx(async (t) => {
       for (const alumno of alumnos) {
         // 🔹 Convertir todos los datos a string
-        const matricula = String(alumno.NO_CONTROL);
-        const nombre = String(alumno.NOMBRE);
-        const paterno = String(alumno.PATERNO);
-        const materno = String(alumno.MATERNO);
-        const curp = String(alumno.CURP);
-        const carreraNombre = String(alumno.CARRERA);
-        const grupoNombre = String(alumno.GRUPO);
-        const semestre = String(alumno.SEMESTRE);
-        const generacion = String(alumno.GENERACION);
+        const matricula = String(alumno.NO_CONTROL).trim();
+        const nombre = String(alumno.NOMBRE).trim();
+        const paterno = String(alumno.PATERNO).trim();
+        const materno = String(alumno.MATERNO).trim();
+        const curp = String(alumno.CURP).trim();
+        const carreraNombre = String(alumno.CARRERA).trim();
+        const grupoNombre = String(alumno.GRUPO).trim();
+        const semestre = String(alumno.SEMESTRE).trim();
+        const generacion = String(alumno.GENERACION).trim();
         const fechaIngreso = new Date().toISOString().split("T")[0]; // 🔹 Fecha actual en formato YYYY-MM-DD
 
         // 🔹 Generar contraseña hasheada (por defecto "12345")
@@ -32,9 +45,10 @@ async function importarAlumnosDesdeExcel(rutaArchivo) {
           [carreraNombre]
         );
         if (!carrera) {
+          const abreviatura = generarAbreviatura(carreraNombre); // Generar abreviatura
           carrera = await t.one(
-            "INSERT INTO carreras (nombre) VALUES ($1) RETURNING id",
-            [carreraNombre]
+            "INSERT INTO carreras (nombre, abreviatura) VALUES ($1, $2) RETURNING id",
+            [carreraNombre, abreviatura]
           );
         }
 
@@ -57,8 +71,8 @@ async function importarAlumnosDesdeExcel(rutaArchivo) {
         );
         if (!usuario) {
           usuario = await t.one(
-            `INSERT INTO usuarios (matricula, nombre, apellido_paterno, apellido_materno, correo, tipo_usuario, contraseña) 
-             VALUES ($1, $2, $3, $4, $5, 'alumno', $6) RETURNING id`,
+            `INSERT INTO usuarios (matricula, nombre, apellido_paterno, apellido_materno, correo, contraseña) 
+             VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
             [
               matricula,
               nombre,
@@ -70,7 +84,19 @@ async function importarAlumnosDesdeExcel(rutaArchivo) {
           );
         }
 
-        // 4️⃣ Verificar si el alumno ya existe
+        // 4️⃣ Asignar rol de "alumno" si no lo tiene
+        const rolAlumno = await t.oneOrNone(
+          "SELECT 1 FROM usuario_rol WHERE usuario_id = $1 AND rol = 'alumno'",
+          [usuario.id]
+        );
+        if (!rolAlumno) {
+          await t.none(
+            "INSERT INTO usuario_rol (usuario_id, rol) VALUES ($1, 'alumno')",
+            [usuario.id]
+          );
+        }
+
+        // 5️⃣ Verificar si el alumno ya existe
         const alumnoExistente = await t.oneOrNone(
           "SELECT id FROM alumnos WHERE usuario_id = $1",
           [usuario.id]
@@ -95,16 +121,16 @@ async function importarAlumnosDesdeExcel(rutaArchivo) {
 
     return { success: true, message: "Datos importados correctamente" };
   } catch (error) {
-    console.error("Error al importar datos:", error);
+    console.error("Error al importar alumnos:", error);
     return {
       success: false,
-      message: "Error al importar datos",
+      message: "Error al importar alumnos",
       error: error.message,
     };
   }
 }
 
-// 📌 Controlador para manejar la subida y procesamiento del archivo
+// 📌 Función para manejar la subida y procesamiento del archivo
 const uploadFile = async (req, res) => {
   try {
     if (!req.file) {

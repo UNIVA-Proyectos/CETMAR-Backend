@@ -1,32 +1,24 @@
 const docentesControllers = require("../controllers/docentesControllers");
-const passport = require("passport");
+const authenticate = require("../middleware/authenticate");
 
 module.exports = (app) => {
   // Obtener todos los docentes
   app.get(
     "/api/docentes/getAll",
-    passport.authenticate("jwt", { session: false }),
+    authenticate,
     docentesControllers.getAllDocentes
   );
 
   //Obtener un docente por ID (jwt)
   app.get(
     "/api/docente/findById/:id",
-    passport.authenticate("jwt", { session: false }),
+    authenticate,
     docentesControllers.findById
   );
 
   // Crear un nuevo docente
-  app.post(
-    "/api/docente/create",
-    passport.authenticate("jwt", { session: false }),
-    docentesControllers.register
-  );
+  app.post("/api/docente/create", authenticate, docentesControllers.register);
 
   // Actualizar datos de un docente
-  app.put(
-    "/api/docente/update",
-    passport.authenticate("jwt", { session: false }),
-    docentesControllers.update
-  );
+  app.put("/api/docente/update", authenticate, docentesControllers.update);
 };

@@ -3,162 +3,161 @@ const bcrypt = require("bcryptjs");
 
 const User = {};
 
+//Obtener todos los usuarios
 User.getAll = () => {
-  const sql = `SELECT 
-    id,
-    TRIM(nombre) AS nombre,
-    TRIM(apellido_paterno) AS apellido_paterno,
-    TRIM(apellido_materno) AS apellido_materno,
-    TRIM(matricula) AS matricula,
-    contraseña,
-    tipo_usuario,
-    TRIM(correo) AS correo,
-    telefono,
-    fecha_creacion
-FROM usuarios;
-`;
-  return db.manyOrNone(sql);
-};
-
-User.findByMatricula = async (matricula) => {
-  if (!matricula) {
-    throw new Error("La matrícula es requerida para la consulta");
-  }
-
   const sql = `
     SELECT 
       id,
-      matricula,
-      nombre,
-      apellido_paterno,
-      apellido_materno,
+      TRIM(nombre) AS nombre,
+      TRIM(apellido_paterno) AS apellido_paterno,
+      TRIM(apellido_materno) AS apellido_materno,
+      TRIM(matricula) AS matricula,
       contraseña,
-      tipo_usuario,
-      telefono
+      TRIM(correo) AS correo,
+      telefono,
+      fecha_creacion
+    FROM usuarios;
+  `;
+  return db.manyOrNone(sql);
+};
+
+//Buscar usuario por matrícula e incluir sus roles
+User.findByMatricula = async (matricula) => {
+  if (!matricula) throw new Error("La matrícula es requerida");
+
+  const userSql = `
+    SELECT 
+      id, matricula, nombre, apellido_paterno, apellido_materno, 
+      contraseña, telefono
     FROM usuarios
     WHERE matricula = $1
   `;
 
-  return db.oneOrNone(sql, matricula);
+  const user = await db.oneOrNone(userSql, matricula);
+  if (!user) return null;
+
+  // Obtener roles del usuario
+  const roles = await User.getRolesByUserId(user.id);
+  user.roles = roles;
+
+  return user;
 };
 
-User.findByUserId = (id) => {
-  const sql = `
-  SELECT 
-    id,
-    matricula,
-    nombre,
-    apellido_paterno,
-    apellido_materno,
-    contraseña,
-    correo,
-    tipo_usuario
+// 📌 Obtener roles de un usuario
+User.getRolesByUserId = async (id) => {
+  const sql = "SELECT rol FROM Usuario_Rol WHERE usuario_id = $1";
+  const roles = await db.manyOrNone(sql, id);
+  return roles.map((row) => row.rol);
+};
+
+// 📌 Buscar usuario por ID e incluir sus roles
+User.findByUserId = async (id) => {
+  const userSql = `
+    SELECT 
+      id, matricula, nombre, apellido_paterno, apellido_materno, 
+      contraseña, correo, telefono
     FROM usuarios
     WHERE id = $1
-    `;
-  return db.oneOrNone(sql, id);
+  `;
+
+  const user = await db.oneOrNone(userSql, id);
+  if (!user) return null;
+
+  // Obtener roles del usuario
+  const roles = await User.getRolesByUserId(user.id);
+  user.roles = roles;
+
+  return user;
 };
 
-User.create = async (user) => {
-  // Generar hash seguro para la contraseña
+// 📌 Crear un usuario con roles
+User.create = async (user, roles) => {
+  // Generar hash de la contraseña
   const hashedPassword = await bcrypt.hash(user.contraseña, 10);
 
-  const sql = `
+  const userSql = `
     INSERT INTO usuarios 
-      (matricula, nombre, apellido_paterno, apellido_materno, correo, contraseña, tipo_usuario, telefono, fecha_creacion)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW()) 
+      (matricula, nombre, apellido_paterno, apellido_materno, correo, contraseña, telefono, fecha_creacion)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, NOW()) 
     RETURNING id;
   `;
 
-  return db.oneOrNone(sql, [
+  // Insertar usuario
+  const newUser = await db.one(userSql, [
     user.matricula,
     user.nombre,
     user.apellido_paterno,
     user.apellido_materno,
     user.correo,
     hashedPassword,
-    user.tipo_usuario, // Puede ser "alumno", "docente", etc.
-    user.telefono || null, // Si el teléfono es opcional
+    user.telefono || null,
   ]);
-};
 
-User.update = (user) => {
-  const sql = `
-    UPDATE users
-      SET
-        name = $2,
-        lastname = $3,
-        phone = $4,
-        image = $5,
-        updated_at = $6
-      WHERE
-        id = $1
+  // Insertar roles
+  if (roles && roles.length > 0) {
+    const roleSql = `
+      INSERT INTO Usuario_Rol (usuario_id, rol)
+      VALUES ${roles.map((_, i) => `(${newUser.id}, $${i + 1})`).join(", ")}
     `;
-  return db.none(sql, [
-    user.id,
-    user.name,
-    user.lastname,
-    user.phone,
-    user.image,
-    new Date(),
-  ]);
-};
-User.getProfileByRole = (id, role) => {
-  let sql = `
-    SELECT 
-      u.id, u.nombre, u.apellido_paterno, u.apellido_materno,
-  `;
-
-  // Agregar campos específicos según el rol
-  if (role === "alumno") {
-    sql += `
-      a.semestre, a.estado, a.curp, a.generacion, a.foto_perfil_url, 
-      c.nombre AS carrera, g.nombre AS grupo,
-      ARRAY_AGG(DISTINCT m.nombre) AS materias
-    FROM usuarios u
-    JOIN alumnos a ON a.usuario_id = u.id
-    LEFT JOIN carreras c ON a.carrera_id = c.id
-    LEFT JOIN grupos g ON a.grupo_id = g.id
-    LEFT JOIN clases cl ON cl.grupo_id = g.id
-    LEFT JOIN materias m ON m.id = cl.materia_id
-    WHERE u.id = $1
-    GROUP BY u.id, a.semestre, a.estado, a.curp, a.generacion, a.foto_perfil_url, c.nombre, g.nombre;
-    `;
-  } else if (role === "docente") {
-    sql += `
-      d.academia,
-      ARRAY_AGG(DISTINCT m.nombre) AS materias_impartidas,
-      ARRAY_AGG(DISTINCT g.nombre) AS grupos_asignados
-    FROM usuarios u
-    JOIN docentes d ON d.usuario_id = u.id
-    LEFT JOIN clases cl ON cl.docente_id = d.id
-    LEFT JOIN materias m ON m.id = cl.materia_id
-    LEFT JOIN grupos g ON g.id = cl.grupo_id
-    WHERE u.id = $1
-    GROUP BY u.id, d.academia;
-    `;
-  } else if (role === "tutor") {
-    sql += `
-      ARRAY_AGG(DISTINCT g.nombre) AS grupos_tutorados
-    FROM usuarios u
-    JOIN grupos g ON g.tutor_id = u.id
-    WHERE u.id = $1
-    GROUP BY u.id;
-    `;
-  } else if (
-    role === "directivo" ||
-    role === "administrativo" ||
-    role === "superadmin"
-  ) {
-    sql += `
-      u.tipo_usuario
-    FROM usuarios u
-    WHERE u.id = $1;
-    `;
+    await db.none(roleSql, roles);
   }
 
-  // Ejecutar la consulta con el ID del usuario
-  return db.oneOrNone(sql, [id]);
+  return newUser;
+};
+
+// 📌 Actualizar datos del usuario
+User.update = async (user) => {
+  const sql = `
+    UPDATE usuarios
+    SET 
+      nombre = $2,
+      apellido_paterno = $3,
+      apellido_materno = $4,
+      telefono = $5,
+      correo = $6
+    WHERE id = $1
+  `;
+  await db.none(sql, [
+    user.id,
+    user.nombre,
+    user.apellido_paterno,
+    user.apellido_materno,
+    user.telefono,
+    user.correo,
+  ]);
+
+  // 📌 Si hay nuevos roles, actualizar
+  if (user.roles && user.roles.length > 0) {
+    await db.none(`DELETE FROM Usuario_Rol WHERE usuario_id = $1`, [user.id]);
+
+    const roleSql = `
+      INSERT INTO Usuario_Rol (usuario_id, rol)
+      VALUES ${user.roles.map((_, i) => `(${user.id}, $${i + 1})`).join(", ")}
+    `;
+    await db.none(roleSql, user.roles);
+  }
+};
+
+User.getProfileByRoles = async (id, roles) => {
+  let profileData = { id };
+
+  if (roles.includes("docente")) {
+    const docenteData = await db.oneOrNone(
+      "SELECT * FROM docentes WHERE usuario_id = $1",
+      [id]
+    );
+    profileData = { ...profileData, ...docenteData };
+  }
+
+  if (roles.includes("alumno")) {
+    const alumnoData = await db.oneOrNone(
+      "SELECT * FROM alumnos WHERE usuario_id = $1",
+      [id]
+    );
+    profileData = { ...profileData, ...alumnoData };
+  }
+
+  return profileData;
 };
 
 module.exports = User;

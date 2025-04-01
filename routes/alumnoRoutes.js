@@ -1,4 +1,5 @@
 const AlumnoController = require("../controllers/alumnoController");
-const passport = require("passport");
+const authenticate = require("../middleware/authenticate");
+const requireRole = require("../middleware/requireRole");
 
 module.exports = (app) => {};

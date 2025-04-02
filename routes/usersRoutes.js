@@ -1,5 +1,6 @@
 const UsersController = require("../controllers/usersController");
 const authenticate = require("../middleware/authenticate");
+const requireRoles = require("../middleware/requireRole");
 
 module.exports = (app) => {
   //Obtener datos
@@ -13,11 +14,21 @@ module.exports = (app) => {
   );
 
   // GUARDAR DATOS
-  app.post("/api/users/create", authenticate, UsersController.register);
+  app.post(
+    "/api/users/create",
+    authenticate,
+    requireRoles(["superadmin"]),
+    UsersController.register
+  );
 
   app.post("/api/users/login", UsersController.login);
   app.post("/api/users/logout", UsersController.logout);
 
   //ACTUALIZAR DATOS
-  app.put("/api/users/update", authenticate, UsersController.update);
+  app.put(
+    "/api/users/update",
+    authenticate,
+    requireRoles(["superadmin"]),
+    UsersController.update
+  );
 };

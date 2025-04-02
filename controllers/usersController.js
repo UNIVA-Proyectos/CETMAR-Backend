@@ -67,14 +67,13 @@ module.exports = {
         });
       }
 
-      const hashedPassword = await bcrypt.hash(contraseña, 10);
       const user = {
         matricula,
         nombre,
         apellido_paterno,
         apellido_materno,
         correo,
-        contraseña: hashedPassword,
+        contraseña,
         telefono,
       };
 

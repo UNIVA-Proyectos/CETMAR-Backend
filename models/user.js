@@ -139,22 +139,82 @@ User.update = async (user) => {
 };
 
 User.getProfileByRoles = async (id, roles) => {
-  let profileData = { id };
+  let profileData = { id, roles }; // 🔹 Ahora se incluyen TODOS los roles en el perfil
 
-  if (roles.includes("docente")) {
-    const docenteData = await db.oneOrNone(
-      "SELECT * FROM docentes WHERE usuario_id = $1",
-      [id]
-    );
-    profileData = { ...profileData, ...docenteData };
-  }
-
+  // 🔹 Si el usuario es alumno
   if (roles.includes("alumno")) {
     const alumnoData = await db.oneOrNone(
-      "SELECT * FROM alumnos WHERE usuario_id = $1",
+      `SELECT 
+        a.semestre, a.estado, a.curp, a.generacion, a.foto_perfil_url, 
+        c.nombre AS carrera, g.nombre AS grupo,
+        ARRAY_AGG(DISTINCT m.nombre) AS materias
+      FROM alumnos a
+      LEFT JOIN carreras c ON a.carrera_id = c.id
+      LEFT JOIN grupos g ON a.grupo_id = g.id
+      LEFT JOIN clases cl ON cl.grupo_id = g.id
+      LEFT JOIN materias m ON m.id = cl.materia_id
+      WHERE a.usuario_id = $1
+      GROUP BY a.id, c.nombre, g.nombre;`,
       [id]
     );
-    profileData = { ...profileData, ...alumnoData };
+
+    if (alumnoData) {
+      profileData.alumno = alumnoData; // 🔹 Se guarda en una clave específica
+    }
+  }
+
+  // 🔹 Si el usuario es docente
+  if (roles.includes("docente")) {
+    const docenteData = await db.oneOrNone(
+      `SELECT 
+        d.academia,
+        ARRAY_AGG(DISTINCT m.nombre) AS materias_impartidas,
+        ARRAY_AGG(DISTINCT g.nombre) AS grupos_asignados
+      FROM docentes d
+      LEFT JOIN clases cl ON cl.docente_id = d.id
+      LEFT JOIN materias m ON m.id = cl.materia_id
+      LEFT JOIN grupos g ON g.id = cl.grupo_id
+      WHERE d.usuario_id = $1
+      GROUP BY d.id;`,
+      [id]
+    );
+
+    if (docenteData) {
+      profileData.docente = docenteData; // 🔹 Se guarda separado
+    }
+  }
+
+  // 🔹 Si el usuario es tutor
+  if (roles.includes("tutor")) {
+    const tutorData = await db.oneOrNone(
+      `SELECT 
+        ARRAY_AGG(DISTINCT g.nombre) AS grupos_tutorados
+      FROM grupos g
+      WHERE g.tutor_id = $1
+      GROUP BY g.tutor_id;`,
+      [id]
+    );
+
+    if (tutorData) {
+      profileData.tutor = tutorData;
+    }
+  }
+
+  // 🔹 Si el usuario es directivo o administrativo
+  if (roles.includes("directivo") || roles.includes("administrativo")) {
+    const usuarioData = await db.oneOrNone(
+      `SELECT u.tipo_usuario FROM usuarios u WHERE u.id = $1;`,
+      [id]
+    );
+
+    if (usuarioData) {
+      profileData.administrativo = usuarioData; // 🔹 Se guarda separado
+    }
+  }
+
+  // 🔹 Si el usuario es superadmin, le damos acceso total (sin datos específicos)
+  if (roles.includes("superadmin")) {
+    profileData.superadmin = true;
   }
 
   return profileData;

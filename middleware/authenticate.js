@@ -18,16 +18,12 @@ async function authenticate(req, res, next) {
     const token = authHeader.split(" ")[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    console.log("Token decodificado:", decoded);
-
     // Verificar que el token tenga un ID de usuario
     if (!decoded.id) {
-      return res
-        .status(403)
-        .json({
-          success: false,
-          message: "Token inválido: no contiene un ID de usuario",
-        });
+      return res.status(403).json({
+        success: false,
+        message: "Token inválido: no contiene un ID de usuario",
+      });
     }
 
     // Si ya trae roles, usarlos directamente

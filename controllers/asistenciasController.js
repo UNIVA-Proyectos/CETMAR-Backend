@@ -1,50 +1,32 @@
 const Asistencia = require("../models/asistencia");
 
 const AsistenciasController = {
-  async registrarAsistencia(req, res) {
+  async registrarAsistenciasMasivas(req, res) {
     try {
-      const { alumno_id, clase_id, fecha, estado } = req.body;
+      const { asistencias } = req.body;
+      const docenteUsuarioId = req.user.id;
 
-      // Validar que todos los datos están presentes
-      if (!alumno_id || !clase_id || !fecha || !estado) {
+      if (!Array.isArray(asistencias) || asistencias.length === 0) {
         return res.status(400).json({
           success: false,
-          message: "Todos los campos son obligatorios",
+          message: "Debe enviar al menos una asistencia",
         });
       }
 
-      // Validar estado
-      const estadosPermitidos = [
-        "presente",
-        "retardo",
-        "ausente",
-        "justificado",
-      ];
-      if (!estadosPermitidos.includes(estado.toLowerCase())) {
-        return res.status(400).json({
-          success: false,
-          message: "Estado de asistencia no válido",
-        });
-      }
-
-      // Registrar asistencia usando el modelo
-      const nuevaAsistencia = await Asistencia.create({
-        alumno_id,
-        clase_id,
-        fecha,
-        estado,
-      });
+      const cantidadRegistradas = await Asistencia.createMasiva(
+        asistencias,
+        docenteUsuarioId
+      );
 
       return res.status(201).json({
         success: true,
-        message: "Asistencia registrada con éxito",
-        asistencia: nuevaAsistencia,
+        message: `Se registraron ${cantidadRegistradas} asistencias dentro del horario permitido.`,
       });
     } catch (error) {
-      console.error("Error al registrar asistencia:", error);
+      console.error("Error al registrar asistencias:", error);
       return res.status(500).json({
         success: false,
-        message: "Error al registrar asistencia",
+        message: "Error al registrar asistencias en lote",
         error: error.message,
       });
     }
@@ -83,6 +65,75 @@ const AsistenciasController = {
       const asistencias = await Asistencia.findByClase(clase_id);
       return res.status(200).json({ success: true, asistencias });
     } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: "Error al obtener asistencias",
+        error: error.message,
+      });
+    }
+  },
+
+  async actualizarEstadosMasivos(req, res) {
+    const { actualizaciones } = req.body;
+
+    if (!Array.isArray(actualizaciones) || actualizaciones.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Se requiere un arreglo de asistencias para actualizar",
+      });
+    }
+
+    // Validar que cada entrada solo tenga id y estado
+    for (let asistencia of actualizaciones) {
+      if (
+        typeof asistencia !== "object" ||
+        !("id" in asistencia) ||
+        !("estado" in asistencia) ||
+        Object.keys(asistencia).length > 2
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Cada asistencia debe incluir únicamente 'id' y 'estado' válidos",
+        });
+      }
+    }
+
+    try {
+      await Asistencia.updateEstadosMasivos(actualizaciones);
+
+      return res.status(200).json({
+        success: true,
+        message: "Estados de asistencias actualizados correctamente",
+      });
+    } catch (error) {
+      console.error("Error al actualizar estados:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Error al actualizar asistencias",
+        error: error.message,
+      });
+    }
+  },
+  async obtenerPorClaseYFecha(req, res) {
+    try {
+      const { clase_id, fecha } = req.params;
+
+      if (!clase_id || !fecha) {
+        return res.status(400).json({
+          success: false,
+          message: "Clase y fecha son requeridos",
+        });
+      }
+
+      const asistencias = await Asistencia.findByClaseYFecha(clase_id, fecha);
+
+      return res.status(200).json({
+        success: true,
+        asistencias,
+      });
+    } catch (error) {
+      console.error("Error al obtener asistencias por clase y fecha:", error);
       return res.status(500).json({
         success: false,
         message: "Error al obtener asistencias",

@@ -7,7 +7,7 @@ module.exports = (app) => {
     "/api/asistencia/registrar",
     authenticate,
     requireRole(["docente", "superadmin"]),
-    AsistenciasController.registrarAsistencia
+    AsistenciasController.registrarAsistenciasMasivas
   );
 
   // Obtener todas las asistencias
@@ -19,11 +19,23 @@ module.exports = (app) => {
     authenticate,
     AsistenciasController.obtenerPorAlumno
   );
+  // Obtener asistencias por clase y fecha
+  app.get(
+    "/api/asistencia/clase/:clase_id/fecha/:fecha",
+    authenticate,
+    AsistenciasController.obtenerPorClaseYFecha
+  );
 
   // Obtener asistencias por clase
   app.get(
     "/api/asistencia/clase/:clase_id",
     authenticate,
     AsistenciasController.obtenerPorClase
+  );
+  //actualizacion de estaos de asistencias masivos
+  app.put(
+    "/api/asistencias/actualizar-estados",
+    authenticate,
+    AsistenciasController.actualizarEstadosMasivos
   );
 };

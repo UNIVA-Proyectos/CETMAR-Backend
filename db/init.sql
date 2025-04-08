@@ -228,3 +228,14 @@ CREATE OR REPLACE TRIGGER trg_actualizar_semestre
 BEFORE INSERT OR UPDATE ON Alumnos
 FOR EACH ROW
 EXECUTE FUNCTION actualizar_semestre();
+
+CREATE UNIQUE INDEX asistencia_unique_idx 
+ON asistencias (alumno_id, clase_id, fecha);
+
+CREATE UNIQUE INDEX idx_usuarios_matricula 
+ON usuarios (matricula);
+
+CREATE UNIQUE INDEX IF NOT EXISTS asistencia_unique_idx 
+ON asistencias (alumno_id, clase_id, fecha);
+
+

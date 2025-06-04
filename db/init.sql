@@ -194,8 +194,9 @@ CREATE TABLE Notificaciones (
     id SERIAL PRIMARY KEY,
     usuario_id INT REFERENCES Usuarios(id) ON DELETE CASCADE,
     mensaje TEXT NOT NULL,
+    titulo VARCHAR(255) NOT NULL,
     fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    leido BOOLEAN DEFAULT FALSE
+    leida BOOLEAN DEFAULT FALSE
 );
 
 -- Función y Trigger para actualizar el semestre considerando bajas temporales

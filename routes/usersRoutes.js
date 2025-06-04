@@ -4,7 +4,7 @@ const requireRoles = require("../middleware/requireRole");
 
 module.exports = (app) => {
   //Obtener datos
-  app.get("/api/users/getAll", UsersController.getAll);
+  app.get("/api/users/getAll", authenticate, UsersController.getAll);
   app.get("/api/users/findById/:id", authenticate, UsersController.findById);
   app.get("/api/users/profile", authenticate, UsersController.getProfile);
   app.get(

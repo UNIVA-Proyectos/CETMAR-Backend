@@ -53,27 +53,6 @@ alumno(app);
 asistenciasRoutes(app);
 notificacionesRoutes(app, io);
 
-// ------ SOCKET.IO NOTIFICACIONES ------
-const db = require("./config/config");
-const {
-  setupSocketNotifications,
-  enviarNotificacionPersonal,
-} = require("./notifications/socketNotifications");
-
-setupSocketNotifications(io);
-
-// Prueba: envía una notificación de bienvenida solo al usuario 339
-setTimeout(() => {
-  enviarNotificacionPersonal(
-    io,
-    339,
-    "Aviso de prueba",
-    "Bienvenido, esto es una notificación solo para ti (usuario 339)."
-  );
-}, 5000);
-
-// --------------------------------------
-
 server.listen(port, "0.0.0.0", function () {
   console.log(
     "Aplicación de Node.js " + process.pid + " iniciada en puerto " + port

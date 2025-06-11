@@ -35,6 +35,13 @@ EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;
 
+DO $$ BEGIN
+    CREATE TYPE estado_incidencia_enum AS ENUM ('pendiente', 'revisado', 'resuelto');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+
 -- Tabla de Usuarios
 CREATE TABLE Usuarios (
     id SERIAL PRIMARY KEY,
@@ -185,7 +192,7 @@ CREATE TABLE Incidencias (
     motivo motivo_incidencia_enum NOT NULL,
     descripcion TEXT NOT NULL,
     evidencia_url TEXT,
-    estado VARCHAR(20) CHECK (estado IN ('pendiente', 'revisado', 'resuelto')) DEFAULT 'pendiente',
+    estado estado_incidencia_enum NOT NULL DEFAULT 'pendiente',
     seguimiento INT REFERENCES Usuarios(id) ON DELETE SET NULL
 );
 
@@ -236,7 +243,18 @@ ON asistencias (alumno_id, clase_id, fecha);
 CREATE UNIQUE INDEX idx_usuarios_matricula 
 ON usuarios (matricula);
 
-CREATE UNIQUE INDEX IF NOT EXISTS asistencia_unique_idx 
-ON asistencias (alumno_id, clase_id, fecha);
+CREATE INDEX idx_usuario_rol_usuario_id ON Usuario_Rol(usuario_id);
+CREATE INDEX idx_alumnos_grupo_id ON Alumnos(grupo_id);
+CREATE INDEX idx_alumnos_carrera_id ON Alumnos(carrera_id);
+CREATE INDEX idx_clases_grupo_id ON Clases(grupo_id);
+CREATE INDEX idx_clases_docente_id ON Clases(docente_id);
+CREATE INDEX idx_clases_materia_id ON Clases(materia_id);
+CREATE INDEX idx_asistencias_alumno_fecha ON Asistencias(alumno_id, fecha);
+CREATE INDEX idx_justificaciones_alumno_fecha ON Justificaciones(alumno_id, fecha_a_justificar);
+CREATE INDEX idx_incidencias_alumno_fecha ON Incidencias(alumno_id, fecha);
+CREATE INDEX idx_notificaciones_usuario_id ON Notificaciones(usuario_id);
+
+
+
 
 

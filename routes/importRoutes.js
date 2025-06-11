@@ -1,5 +1,7 @@
 const multer = require("multer");
 const { uploadFile } = require("../controllers/importController");
+const authenticate = require("../middleware/authenticate");
+const requireRoles = require("../middleware/requireRole");
 
 module.exports = (app) => {
   // Configuración de multer para almacenar archivos en /uploads
@@ -12,5 +14,10 @@ module.exports = (app) => {
 
   const upload = multer({ storage });
 
-  app.post("/api/import/alumnos", upload.single("file"), uploadFile);
+  app.post(
+    "/api/import/alumnos",
+    authenticate,
+    upload.single("file"),
+    uploadFile
+  );
 };

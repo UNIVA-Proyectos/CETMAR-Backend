@@ -212,9 +212,9 @@ User.getProfileByRoles = async (id, roles) => {
     }
   }
 
-  // 🔹 Si el usuario es superadmin, le damos acceso total (sin datos específicos)
-  if (roles.includes("superadmin")) {
-    profileData.superadmin = true;
+  // 🔹 Si el usuario es admin, le damos acceso total (sin datos específicos)
+  if (roles.includes("admin")) {
+    profileData.admin = true;
   }
 
   return profileData;

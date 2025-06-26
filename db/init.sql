@@ -18,7 +18,7 @@ EXCEPTION
 END $$;
 
 DO $$ BEGIN
-    CREATE TYPE tipo_usuario_enum AS ENUM ('superadmin', 'directivo', 'administrativo', 'docente', 'tutor', 'padre', 'alumno');
+    CREATE TYPE tipo_usuario_enum AS ENUM ('admin', 'directivo', 'administrativo', 'docente', 'tutor', 'padre', 'alumno');
 EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;

@@ -17,6 +17,7 @@ module.exports = (app) => {
   app.post(
     "/api/import/alumnos",
     authenticate,
+    requireRoles(["admin"]),
     upload.single("file"),
     uploadFile
   );

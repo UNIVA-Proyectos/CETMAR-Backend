@@ -17,7 +17,7 @@ module.exports = (app) => {
   app.post(
     "/api/users/create",
     authenticate,
-    requireRoles(["superadmin"]),
+    requireRoles(["admin"]),
     UsersController.register
   );
 
@@ -28,7 +28,7 @@ module.exports = (app) => {
   app.put(
     "/api/users/update",
     authenticate,
-    requireRoles(["superadmin"]),
+    requireRoles(["admin"]),
     UsersController.update
   );
 };

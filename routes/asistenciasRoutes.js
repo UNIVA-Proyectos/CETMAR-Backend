@@ -6,7 +6,7 @@ module.exports = (app) => {
   app.post(
     "/api/asistencia/registrar",
     authenticate,
-    requireRole(["docente", "superadmin"]),
+    requireRole(["docente", "admin"]),
     AsistenciasController.registrarAsistenciasMasivas
   );
 

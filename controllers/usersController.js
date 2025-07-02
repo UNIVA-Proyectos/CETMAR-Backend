@@ -270,4 +270,41 @@ module.exports = {
       });
     }
   },
+
+  async getSummary(req, res) {
+    try {
+      const db = require("../config/config");
+      // Consulta eficiente: cuenta usuarios por rol
+      const counts = await db.manyOrNone(`
+        SELECT rol, COUNT(*) as total
+        FROM Usuario_Rol
+        GROUP BY rol
+      `);
+      // Mapeo de roles a los nombres esperados
+      let profesores = 0, estudiantes = 0, padres = 0, administradores = 0;
+      counts.forEach(c => {
+        if (c.rol === 'admin') administradores = parseInt(c.total, 10);
+        if (c.rol === 'profesor' || c.rol === 'docente') profesores += parseInt(c.total, 10);
+        if (c.rol === 'estudiante' || c.rol === 'alumno') estudiantes += parseInt(c.total, 10);
+        if (c.rol === 'padre') padres += parseInt(c.total, 10);
+      });
+      // Lista de usuarios para la tabla (puede seguir como antes)
+      const users = await require("../models/user").getAll();
+      const lista = users.map(u => {
+        let rol = Array.isArray(u.roles) ? u.roles[0] : u.rol || '';
+        return {
+          id: u.id,
+          nombre: u.nombre + (u.apellido_paterno ? ' ' + u.apellido_paterno : ''),
+          email: u.correo,
+          rol: rol,
+          estado: u.estado || 'activo',
+          grupo: u.grupo || '',
+          fechaRegistro: u.fecha_creacion || '',
+        };
+      });
+      res.json({ profesores, estudiantes, padres, administradores, lista });
+    } catch (error) {
+      res.status(500).json({ error: 'Error al obtener resumen de usuarios', details: error.message });
+    }
+  },
 };

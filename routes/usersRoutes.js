@@ -1,6 +1,7 @@
 const UsersController = require("../controllers/usersController");
 const authenticate = require("../middleware/authenticate");
 const requireRoles = require("../middleware/requireRole");
+const DashboardController = require("../controllers/dashboardController");
 
 module.exports = (app) => {
   //Obtener datos
@@ -30,5 +31,21 @@ module.exports = (app) => {
     authenticate,
     requireRoles(["admin"]),
     UsersController.update
+  );
+
+  // Endpoint de estadísticas del panel admin
+  app.get(
+    "/api/dashboard/admin-stats",
+    authenticate,
+    requireRoles(["admin", "directivo", "administrativo"]),
+    DashboardController.getAdminStats
+  );
+
+  // Endpoint de resumen de usuarios por rol
+  app.get(
+    "/api/users/summary",
+    authenticate,
+    requireRoles(["admin", "directivo", "administrativo"]),
+    UsersController.getSummary
   );
 };

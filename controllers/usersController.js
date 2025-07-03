@@ -162,11 +162,32 @@ module.exports = {
 
       const roles = await User.getRolesByUserId(user.id);
 
-      const token = jwt.sign(
+            const accessToken = jwt.sign(
         { id: user.id, matricula: user.matricula, roles },
         process.env.JWT_SECRET,
-        { expiresIn: "1h" }
+        { expiresIn: "15m" }
       );
+
+      const refreshToken = jwt.sign(
+        { id: user.id },
+        process.env.JWT_SECRET,
+        { expiresIn: "7d" }
+      );
+
+      // Enviar tokens como cookies httpOnly
+      res.cookie("token", accessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        maxAge: 15 * 60 * 1000, // 15 minutos
+      });
+      // Cookie de refresh
+      res.cookie("refreshToken", refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 días
+      });
 
       return res.status(200).json({
         success: true,
@@ -180,7 +201,7 @@ module.exports = {
           telefono: user.telefono,
           roles,
         },
-        token,
+        token: accessToken,
       });
     } catch (error) {
       console.error("Error en login:", error);
@@ -192,7 +213,7 @@ module.exports = {
 
   async verifySession(req, res) {
     try {
-      const token = req.headers.authorization?.split(" ")[1];
+      const token = req.cookies.token || req.headers.authorization?.split(" ")[1];
 
       if (!token) {
         return res
@@ -224,10 +245,56 @@ module.exports = {
     }
   },
 
+  async refreshToken(req, res) {
+    try {
+      const { refreshToken } = req.cookies;
+      if (!refreshToken) {
+        return res.status(401).json({ success: false, message: "No se proporcionó refresh token" });
+      }
+      let decoded;
+      try {
+        decoded = jwt.verify(refreshToken, process.env.JWT_SECRET);
+      } catch (err) {
+        return res.status(403).json({ success: false, message: "Refresh token inválido o expirado" });
+      }
+      const user = await User.findByUserId(decoded.id);
+      if (!user) {
+        return res.status(401).json({ success: false, message: "Usuario no encontrado" });
+      }
+      const roles = await User.getRolesByUserId(user.id);
+      const newAccessToken = jwt.sign({ id: user.id, matricula: user.matricula, roles }, process.env.JWT_SECRET, { expiresIn: "15m" });
+      res.cookie("token", newAccessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        maxAge: 15 * 60 * 1000,
+      });
+      return res.status(200).json({ success: true });
+    } catch (error) {
+      console.error("Error en refreshToken:", error);
+      return res.status(500).json({ success: false, message: "Error al refrescar token" });
+    }
+  },
+
   async logout(req, res) {
-    return res
-      .status(200)
-      .json({ success: true, message: "Sesión cerrada correctamente" });
+    // Eliminar cookie
+    const token = req.cookies.token;
+    if (token) {
+      const { add } = require("../utils/tokenBlacklist");
+      // acceso token expira en 15min
+      await add(token, 15 * 60 * 1000);
+    }
+    res.clearCookie("token", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+    });
+    res.clearCookie("refreshToken", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+    });
+    return res.status(200).json({ success: true, message: "Sesión cerrada correctamente" });
   },
 
   async getProfile(req, res) {

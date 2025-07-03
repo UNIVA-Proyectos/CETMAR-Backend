@@ -4,6 +4,7 @@ const http = require("http");
 const server = http.createServer(app);
 const logger = require("morgan");
 const cors = require("cors");
+const cookieParser = require("cookie-parser");
 
 const { Server } = require("socket.io");
 const io = new Server(server, {
@@ -26,6 +27,7 @@ const port = process.env.PORT || 3000;
 
 app.use(logger("dev"));
 app.use(express.json());
+app.use(cookieParser());
 app.use(
   express.urlencoded({
     extended: true,

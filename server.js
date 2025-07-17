@@ -54,6 +54,8 @@ excel(app);
 alumno(app);
 asistenciasRoutes(app);
 notificacionesRoutes(app, io);
+require('./routes/incidenciasRoutes')(app);
+
 
 server.listen(port, "0.0.0.0", function () {
   console.log(

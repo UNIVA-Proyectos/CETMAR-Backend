@@ -162,17 +162,15 @@ module.exports = {
 
       const roles = await User.getRolesByUserId(user.id);
 
-            const accessToken = jwt.sign(
+      const accessToken = jwt.sign(
         { id: user.id, matricula: user.matricula, roles },
         process.env.JWT_SECRET,
         { expiresIn: "15m" }
       );
 
-      const refreshToken = jwt.sign(
-        { id: user.id },
-        process.env.JWT_SECRET,
-        { expiresIn: "7d" }
-      );
+      const refreshToken = jwt.sign({ id: user.id }, process.env.JWT_SECRET, {
+        expiresIn: "7d",
+      });
 
       // Enviar tokens como cookies httpOnly
       res.cookie("token", accessToken, {
@@ -213,7 +211,8 @@ module.exports = {
 
   async verifySession(req, res) {
     try {
-      const token = req.cookies.token || req.headers.authorization?.split(" ")[1];
+      const token =
+        req.cookies.token || req.headers.authorization?.split(" ")[1];
 
       if (!token) {
         return res
@@ -249,20 +248,31 @@ module.exports = {
     try {
       const { refreshToken } = req.cookies;
       if (!refreshToken) {
-        return res.status(401).json({ success: false, message: "No se proporcionó refresh token" });
+        return res
+          .status(401)
+          .json({ success: false, message: "No se proporcionó refresh token" });
       }
       let decoded;
       try {
         decoded = jwt.verify(refreshToken, process.env.JWT_SECRET);
       } catch (err) {
-        return res.status(403).json({ success: false, message: "Refresh token inválido o expirado" });
+        return res.status(403).json({
+          success: false,
+          message: "Refresh token inválido o expirado",
+        });
       }
       const user = await User.findByUserId(decoded.id);
       if (!user) {
-        return res.status(401).json({ success: false, message: "Usuario no encontrado" });
+        return res
+          .status(401)
+          .json({ success: false, message: "Usuario no encontrado" });
       }
       const roles = await User.getRolesByUserId(user.id);
-      const newAccessToken = jwt.sign({ id: user.id, matricula: user.matricula, roles }, process.env.JWT_SECRET, { expiresIn: "15m" });
+      const newAccessToken = jwt.sign(
+        { id: user.id, matricula: user.matricula, roles },
+        process.env.JWT_SECRET,
+        { expiresIn: "15m" }
+      );
       res.cookie("token", newAccessToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
@@ -272,7 +282,9 @@ module.exports = {
       return res.status(200).json({ success: true });
     } catch (error) {
       console.error("Error en refreshToken:", error);
-      return res.status(500).json({ success: false, message: "Error al refrescar token" });
+      return res
+        .status(500)
+        .json({ success: false, message: "Error al refrescar token" });
     }
   },
 
@@ -294,7 +306,9 @@ module.exports = {
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
     });
-    return res.status(200).json({ success: true, message: "Sesión cerrada correctamente" });
+    return res
+      .status(200)
+      .json({ success: true, message: "Sesión cerrada correctamente" });
   },
 
   async getProfile(req, res) {
@@ -348,30 +362,49 @@ module.exports = {
         GROUP BY rol
       `);
       // Mapeo de roles a los nombres esperados
-      let profesores = 0, estudiantes = 0, padres = 0, administradores = 0;
-      counts.forEach(c => {
-        if (c.rol === 'admin') administradores = parseInt(c.total, 10);
-        if (c.rol === 'profesor' || c.rol === 'docente') profesores += parseInt(c.total, 10);
-        if (c.rol === 'estudiante' || c.rol === 'alumno') estudiantes += parseInt(c.total, 10);
-        if (c.rol === 'padre') padres += parseInt(c.total, 10);
+      let profesores = 0,
+        estudiantes = 0,
+        padres = 0,
+        administradores = 0;
+      counts.forEach((c) => {
+        if (c.rol === "admin") administradores = parseInt(c.total, 10);
+        if (c.rol === "profesor" || c.rol === "docente")
+          profesores += parseInt(c.total, 10);
+        if (c.rol === "estudiante" || c.rol === "alumno")
+          estudiantes += parseInt(c.total, 10);
+        if (c.rol === "padre") padres += parseInt(c.total, 10);
       });
       // Lista de usuarios para la tabla (puede seguir como antes)
       const users = await require("../models/user").getAll();
-      const lista = users.map(u => {
-        let rol = Array.isArray(u.roles) ? u.roles[0] : u.rol || '';
+      const lista = users.map((u) => {
+        let rol = Array.isArray(u.roles) ? u.roles[0] : u.rol || "";
         return {
           id: u.id,
-          nombre: u.nombre + (u.apellido_paterno ? ' ' + u.apellido_paterno : ''),
+          nombre:
+            u.nombre + (u.apellido_paterno ? " " + u.apellido_paterno : ""),
           email: u.correo,
           rol: rol,
-          estado: u.estado || 'activo',
-          grupo: u.grupo || '',
-          fechaRegistro: u.fecha_creacion || '',
+          estado: u.estado || "activo",
+          grupo: u.grupo || "",
+          fechaRegistro: u.fecha_creacion || "",
         };
       });
       res.json({ profesores, estudiantes, padres, administradores, lista });
     } catch (error) {
-      res.status(500).json({ error: 'Error al obtener resumen de usuarios', details: error.message });
+      res.status(500).json({
+        error: "Error al obtener resumen de usuarios",
+        details: error.message,
+      });
+    }
+  },
+  async syncUsuarios(req, res) {
+    try {
+      const { updated_since } = req.query;
+      const usuarios = await User.getUsuariosParaSync(updated_since);
+      return res.status(200).json(usuarios);
+    } catch (error) {
+      console.error("Error en syncUsuarios:", error);
+      res.status(500).json({ error: "Error interno del servidor" });
     }
   },
 };

@@ -14,6 +14,8 @@ module.exports = (app) => {
     authenticate,
     UsersController.verifySession
   );
+  // Endpoint para sincronización de usuarios con terminales biométricas
+  app.get("/api/users/sync", authenticate, UsersController.syncUsuarios);
 
   // GUARDAR DATOS
   app.post(

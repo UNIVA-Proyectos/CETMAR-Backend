@@ -220,4 +220,33 @@ User.getProfileByRoles = async (id, roles) => {
   return profileData;
 };
 
+User.getUsuariosParaSync = async (updated_since) => {
+  let query = `
+    SELECT
+      u.id,
+      u.matricula,
+      u.nombre,
+      u.apellido_paterno,
+      u.apellido_materno,
+      a.id AS alumno_id
+    FROM
+      usuarios u
+    JOIN
+      alumnos a ON a.usuario_id = u.id
+    WHERE
+      a.estado = 'activo'
+    AND (u.fecha_creacion >= $1 OR u.fecha_modificacion >= $1)
+  `;
+
+  const usuarios = await db.manyOrNone(query, [updated_since]);
+  return usuarios.map((usuario) => ({
+    id: usuario.id,
+    matricula: usuario.matricula,
+    nombre: usuario.nombre,
+    apellido_paterno: usuario.apellido_paterno,
+    apellido_materno: usuario.apellido_materno,
+    alumno_id: usuario.alumno_id,
+  }));
+};
+
 module.exports = User;

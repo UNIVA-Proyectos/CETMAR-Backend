@@ -52,7 +52,8 @@ CREATE TABLE Usuarios (
     contraseña VARCHAR(255) NOT NULL,
     correo VARCHAR(255) UNIQUE NOT NULL,
     telefono VARCHAR(15),
-    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    fecha_modificacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Tabla de Multi-Rol
@@ -69,10 +70,18 @@ CREATE TABLE Carreras (
     abreviatura VARCHAR(50) NULL
 );
 
+CREATE TABLE Periodos (
+    id SERIAL PRIMARY KEY,
+    nombre VARCHAR(20) UNIQUE NOT NULL, -- e.g., '2025-1', '2025-2'
+    fecha_inicio DATE NOT NULL,
+    fecha_fin DATE NOT NULL
+);
+
 -- Tabla de Grupos
 CREATE TABLE Grupos (
     id SERIAL PRIMARY KEY,
     nombre VARCHAR(50) NOT NULL,
+    periodo_id INT REFERENCES Periodos(id),
     tutor_id INT REFERENCES Usuarios(id) ON DELETE SET NULL
 );
 
@@ -132,7 +141,8 @@ CREATE TABLE Clases (
     materia_id INT REFERENCES Materias(id) ON DELETE CASCADE,
     dia_semana VARCHAR(20) CHECK (dia_semana IN ('Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes')) NOT NULL,
     hora_inicio TIME NOT NULL,
-    hora_fin TIME NOT NULL
+    hora_fin TIME NOT NULL,
+    periodo_id INT REFERENCES Periodos(id)
 );
 
 -- Tabla de Asistencias
@@ -171,6 +181,7 @@ CREATE TABLE Calificaciones (
     alumno_id INT REFERENCES Alumnos(id) ON DELETE CASCADE,
     clase_id INT REFERENCES Clases(id) ON DELETE CASCADE,
     calificacion DECIMAL(5,2) CHECK (calificacion BETWEEN 0 AND 100),
+    tipo_calificacion VARCHAR(20) NOT NULL DEFAULT 'parcial',
     fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -236,6 +247,21 @@ CREATE OR REPLACE TRIGGER trg_actualizar_semestre
 BEFORE INSERT OR UPDATE ON Alumnos
 FOR EACH ROW
 EXECUTE FUNCTION actualizar_semestre();
+
+CREATE OR REPLACE FUNCTION actualizar_fecha_modificacion()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.fecha_modificacion = CURRENT_TIMESTAMP;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_actualizar_fecha_modificacion ON usuarios;
+
+CREATE TRIGGER trg_actualizar_fecha_modificacion
+BEFORE UPDATE ON usuarios
+FOR EACH ROW
+EXECUTE FUNCTION actualizar_fecha_modificacion();
 
 CREATE UNIQUE INDEX asistencia_unique_idx 
 ON asistencias (alumno_id, clase_id, fecha);

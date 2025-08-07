@@ -22,6 +22,8 @@ const excel = require("./routes/importRoutes");
 const alumno = require("./routes/alumnoRoutes");
 const asistenciasRoutes = require("./routes/asistenciasRoutes");
 const notificacionesRoutes = require("./routes/notificacionesRoutes");
+const bridge = require("./routes/bridgeRoutes");
+const incidencias = require("./routes/incidenciasRoutes");
 
 const port = process.env.PORT || 3000;
 
@@ -53,9 +55,9 @@ docentes(app);
 excel(app);
 alumno(app);
 asistenciasRoutes(app);
+bridge(app);
 notificacionesRoutes(app, io);
-require('./routes/incidenciasRoutes')(app);
-
+incidencias(app);
 
 server.listen(port, "0.0.0.0", function () {
   console.log(

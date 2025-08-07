@@ -397,14 +397,4 @@ module.exports = {
       });
     }
   },
-  async syncUsuarios(req, res) {
-    try {
-      const { updated_since } = req.query;
-      const usuarios = await User.getUsuariosParaSync(updated_since);
-      return res.status(200).json(usuarios);
-    } catch (error) {
-      console.error("Error en syncUsuarios:", error);
-      res.status(500).json({ error: "Error interno del servidor" });
-    }
-  },
 };

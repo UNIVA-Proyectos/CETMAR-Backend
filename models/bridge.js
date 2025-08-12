@@ -2,33 +2,67 @@ const db = require("../config/config");
 
 const Bridge = {};
 
-Bridge.getUsuariosParaSync = async (updated_since) => {
-  let query = `
+Bridge.getUsuariosParaSync = async (
+  updated_since,
+  limit = 100,
+  after_last_update = null,
+  after_last_id = null
+) => {
+  const query = `
     SELECT
       u.id,
       u.matricula,
       u.nombre,
       u.apellido_paterno,
       u.apellido_materno,
-      a.id AS alumno_id
+      a.id AS alumno_id,
+      a.estado,
+      GREATEST(
+        COALESCE(u.fecha_modificacion, u.fecha_creacion),
+        COALESCE(a.fecha_modificacion, a.fecha_ingreso),
+        COALESCE(a.fecha_ultima_baja, '1970-01-01')
+      ) AS last_update
     FROM
       usuarios u
     JOIN
       alumnos a ON a.usuario_id = u.id
     WHERE
-      a.estado = 'activo'
-    AND (u.fecha_creacion >= $1 OR u.fecha_modificacion >= $1)
+      GREATEST(
+        COALESCE(u.fecha_modificacion, u.fecha_creacion),
+        COALESCE(a.fecha_modificacion, a.fecha_ingreso),
+        COALESCE(a.fecha_ultima_baja, '1970-01-01')
+      ) >= $1
+      AND (
+        $3::timestamp IS NULL OR
+        (
+          GREATEST(
+            COALESCE(u.fecha_modificacion, u.fecha_creacion),
+            COALESCE(a.fecha_modificacion, a.fecha_ingreso),
+            COALESCE(a.fecha_ultima_baja, '1970-01-01')
+          ), u.id
+        ) > ($3::timestamp, $4::int)
+      )
+    ORDER BY last_update, u.id
+    LIMIT $2
   `;
+  const params = [
+    updated_since,
+    limit,
+    after_last_update || null,
+    after_last_id || null,
+  ];
 
-  const usuarios = await db.manyOrNone(query, [updated_since]);
-  return usuarios.map((usuario) => ({
-    id: usuario.id,
-    matricula: usuario.matricula,
-    nombre: usuario.nombre,
-    apellido_paterno: usuario.apellido_paterno,
-    apellido_materno: usuario.apellido_materno,
-    alumno_id: usuario.alumno_id,
-  }));
+  const rows = await db.manyOrNone(query, params);
+  const has_more = rows.length === limit;
+  const next_last_update = has_more ? rows[rows.length - 1].last_update : null;
+  const next_last_id = has_more ? rows[rows.length - 1].id : null;
+
+  return {
+    usuarios: rows,
+    has_more,
+    next_last_update,
+    next_last_id,
+  };
 };
 
 // Guardar entradas y salidas en lote usando transacciones de pg-promise

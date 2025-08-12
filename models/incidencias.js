@@ -24,12 +24,42 @@ Incidencia.create = async (data) => {
 
 // Obtener todas las incidencias
 Incidencia.getAll = () => {
-  return db.manyOrNone("SELECT * FROM Incidencias ORDER BY fecha DESC");
+  const sql = `
+    SELECT 
+      i.*,
+      u.nombre as estudiante_nombre,
+      u.apellido_paterno as estudiante_apellido_paterno,
+      u.apellido_materno as estudiante_apellido_materno,
+      g.nombre as grupo_nombre,
+      c.nombre as carrera_nombre
+    FROM Incidencias i
+    LEFT JOIN Alumnos a ON i.alumno_id = a.id
+    LEFT JOIN Usuarios u ON a.usuario_id = u.id
+    LEFT JOIN Grupos g ON a.grupo_id = g.id
+    LEFT JOIN Carreras c ON a.carrera_id = c.id
+    ORDER BY i.fecha DESC
+  `;
+  return db.manyOrNone(sql);
 };
 
 // Obtener incidencia por ID
 Incidencia.getById = (id) => {
-  return db.oneOrNone("SELECT * FROM Incidencias WHERE id = $1", [id]);
+  const sql = `
+    SELECT 
+      i.*,
+      u.nombre as estudiante_nombre,
+      u.apellido_paterno as estudiante_apellido_paterno,
+      u.apellido_materno as estudiante_apellido_materno,
+      g.nombre as grupo_nombre,
+      c.nombre as carrera_nombre
+    FROM Incidencias i
+    LEFT JOIN Alumnos a ON i.alumno_id = a.id
+    LEFT JOIN Usuarios u ON a.usuario_id = u.id
+    LEFT JOIN Grupos g ON a.grupo_id = g.id
+    LEFT JOIN Carreras c ON a.carrera_id = c.id
+    WHERE i.id = $1
+  `;
+  return db.oneOrNone(sql, [id]);
 };
 
 // Actualizar incidencia

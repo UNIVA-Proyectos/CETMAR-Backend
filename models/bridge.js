@@ -39,12 +39,21 @@ Bridge.getUsuariosParaSync = async (
             COALESCE(u.fecha_modificacion, u.fecha_creacion),
             COALESCE(a.fecha_modificacion, a.fecha_ingreso),
             COALESCE(a.fecha_ultima_baja, '1970-01-01')
-          ), u.id
-        ) > ($3::timestamp, $4::int)
+          ) > $3::timestamp
+          OR (
+            GREATEST(
+              COALESCE(u.fecha_modificacion, u.fecha_creacion),
+              COALESCE(a.fecha_modificacion, a.fecha_ingreso),
+              COALESCE(a.fecha_ultima_baja, '1970-01-01')
+            ) = $3::timestamp
+            AND u.id > $4::int
+          )
+        )
       )
     ORDER BY last_update, u.id
     LIMIT $2
   `;
+
   const params = [
     updated_since,
     limit,

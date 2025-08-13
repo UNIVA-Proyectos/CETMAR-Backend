@@ -7,6 +7,7 @@ module.exports = {
       const limit = parseInt(req.query.limit) || 100;
       const after_last_update = req.query.after_last_update || null;
       const after_last_id = req.query.after_last_id || null;
+
       const result = await Bridge.getUsuariosParaSync(
         updated_since,
         limit,

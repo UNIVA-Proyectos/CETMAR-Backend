@@ -3,123 +3,216 @@ const xlsx = require("xlsx");
 const bcrypt = require("bcryptjs");
 const db = require("../config/config");
 
-// 📌 Función para generar la abreviatura de la carrera
 function generarAbreviatura(nombreCarrera) {
   const partes = nombreCarrera.toUpperCase().split(" ");
   if (partes.length < 3 || partes[0] !== "TÉCNICO" || partes[1] !== "EN") {
-    return nombreCarrera.substring(0, 3).toUpperCase(); // Fallback
+    return nombreCarrera.substring(0, 3).toUpperCase();
   }
   return partes
     .slice(2)
     .map((palabra) => palabra[0])
-    .join(""); // Toma iniciales
+    .join("");
 }
 
-// 📌 Importación de alumnos desde un archivo Excel
+async function getPeriodoActual(t) {
+  const periodo = await t.oneOrNone(
+    `SELECT id FROM periodos WHERE fecha_inicio <= CURRENT_DATE AND fecha_fin >= CURRENT_DATE LIMIT 1`
+  );
+  return periodo ? periodo.id : null;
+}
+
 async function importarAlumnosDesdeExcel(rutaArchivo) {
   const workbook = xlsx.readFile(rutaArchivo);
   const hoja = workbook.Sheets[workbook.SheetNames[0]];
   const alumnos = xlsx.utils.sheet_to_json(hoja);
 
   try {
-    await db.tx(async (t) => {
-      for (const alumno of alumnos) {
-        // 🔹 Convertir todos los datos a string
+    return await db.tx(async (t) => {
+      let carrerasDB = await t.any("SELECT id, nombre FROM carreras");
+      let gruposDB = await t.any("SELECT id, nombre, periodo_id FROM grupos");
+      let usuariosDB = await t.any("SELECT id, matricula FROM usuarios");
+
+      const periodoActual = await getPeriodoActual(t);
+      if (!periodoActual) throw new Error("No hay un periodo actual definido.");
+
+      const passwordHash = await bcrypt.hash("12345", 10);
+      const fechaIngreso = new Date().toISOString().split("T")[0];
+
+      const usuariosToInsert = [];
+      const usuariosMatriculasSet = new Set(usuariosDB.map((u) => u.matricula));
+      const carrerasToInsert = [];
+      const carrerasNombreSet = new Set(carrerasDB.map((c) => c.nombre));
+      const gruposToInsert = [];
+      const gruposClaveSet = new Set(
+        gruposDB.map((g) => `${g.nombre}|${g.periodo_id}`)
+      );
+
+      alumnos.forEach((alumno) => {
         const matricula = String(alumno.NO_CONTROL).trim();
-        const nombre = String(alumno.NOMBRE).trim();
-        const paterno = String(alumno.PATERNO).trim();
-        const materno = String(alumno.MATERNO).trim();
-        const curp = String(alumno.CURP).trim();
         const carreraNombre = String(alumno.CARRERA).trim();
         const grupoNombre = String(alumno.GRUPO).trim();
-        const semestre = String(alumno.SEMESTRE).trim();
-        const generacion = String(alumno.GENERACION).trim();
-        const fechaIngreso = new Date().toISOString().split("T")[0]; // 🔹 Fecha actual en formato YYYY-MM-DD
 
-        // 🔹 Generar contraseña hasheada (por defecto "12345")
-        const passwordHash = await bcrypt.hash("12345", 10);
-
-        // 1️⃣ Verificar si la carrera ya existe
-        let carrera = await t.oneOrNone(
-          "SELECT id FROM carreras WHERE nombre = $1",
-          [carreraNombre]
-        );
-        if (!carrera) {
-          const abreviatura = generarAbreviatura(carreraNombre); // Generar abreviatura
-          carrera = await t.one(
-            "INSERT INTO carreras (nombre, abreviatura) VALUES ($1, $2) RETURNING id",
-            [carreraNombre, abreviatura]
-          );
+        if (!usuariosMatriculasSet.has(matricula)) {
+          usuariosToInsert.push({
+            matricula,
+            nombre: String(alumno.NOMBRE).trim(),
+            paterno: String(alumno.PATERNO).trim(),
+            materno: String(alumno.MATERNO).trim(),
+            correo: `${matricula}@cetmar6.com`,
+            password: passwordHash,
+          });
+          usuariosMatriculasSet.add(matricula);
         }
-
-        // 2️⃣ Verificar si el grupo ya existe
-        let grupo = await t.oneOrNone(
-          "SELECT id FROM grupos WHERE nombre = $1",
-          [grupoNombre]
-        );
-        if (!grupo) {
-          grupo = await t.one(
-            "INSERT INTO grupos (nombre) VALUES ($1) RETURNING id",
-            [grupoNombre]
-          );
+        if (!carrerasNombreSet.has(carreraNombre)) {
+          carrerasToInsert.push({
+            nombre: carreraNombre,
+            abreviatura: generarAbreviatura(carreraNombre),
+          });
+          carrerasNombreSet.add(carreraNombre);
         }
-
-        // 3️⃣ Verificar si el usuario ya existe
-        let usuario = await t.oneOrNone(
-          "SELECT id FROM usuarios WHERE matricula = $1",
-          [matricula]
-        );
-        if (!usuario) {
-          usuario = await t.one(
-            `INSERT INTO usuarios (matricula, nombre, apellido_paterno, apellido_materno, correo, contraseña) 
-             VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
-            [
-              matricula,
-              nombre,
-              paterno,
-              materno,
-              `${matricula}@cetmar6.com`,
-              passwordHash,
-            ]
-          );
+        const grupoKey = `${grupoNombre}|${periodoActual}`;
+        if (!gruposClaveSet.has(grupoKey)) {
+          gruposToInsert.push({
+            nombre: grupoNombre,
+            periodo_id: periodoActual,
+          });
+          gruposClaveSet.add(grupoKey);
         }
+      });
 
-        // 4️⃣ Asignar rol de "alumno" si no lo tiene
-        const rolAlumno = await t.oneOrNone(
-          "SELECT 1 FROM usuario_rol WHERE usuario_id = $1 AND rol = 'alumno'",
-          [usuario.id]
+      if (carrerasToInsert.length) {
+        const values = carrerasToInsert
+          .map((_, i) => `($${i * 2 + 1}, $${i * 2 + 2})`)
+          .join(",");
+        const flat = carrerasToInsert.flatMap((c) => [c.nombre, c.abreviatura]);
+        const rows = await t.any(
+          `INSERT INTO carreras (nombre, abreviatura) VALUES ${values} RETURNING id, nombre`,
+          flat
         );
-        if (!rolAlumno) {
-          await t.none(
-            "INSERT INTO usuario_rol (usuario_id, rol) VALUES ($1, 'alumno')",
-            [usuario.id]
-          );
-        }
-
-        // 5️⃣ Verificar si el alumno ya existe
-        const alumnoExistente = await t.oneOrNone(
-          "SELECT id FROM alumnos WHERE usuario_id = $1",
-          [usuario.id]
-        );
-        if (!alumnoExistente) {
-          await t.none(
-            `INSERT INTO alumnos (usuario_id, curp, carrera_id, grupo_id, semestre, generacion, fecha_ingreso, estado) 
-             VALUES ($1, $2, $3, $4, $5, $6, $7, 'activo')`,
-            [
-              usuario.id,
-              curp,
-              carrera.id,
-              grupo.id,
-              semestre,
-              generacion,
-              fechaIngreso,
-            ]
-          );
-        }
+        carrerasDB.push(...rows);
       }
-    });
+      if (gruposToInsert.length) {
+        const values = gruposToInsert
+          .map((_, i) => `($${i * 2 + 1}, $${i * 2 + 2})`)
+          .join(",");
+        const flat = gruposToInsert.flatMap((g) => [g.nombre, g.periodo_id]);
+        const rows = await t.any(
+          `INSERT INTO grupos (nombre, periodo_id) VALUES ${values} RETURNING id, nombre, periodo_id`,
+          flat
+        );
+        gruposDB.push(...rows);
+      }
+      if (usuariosToInsert.length) {
+        const values = usuariosToInsert
+          .map(
+            (_, i) =>
+              `($${i * 6 + 1}, $${i * 6 + 2}, $${i * 6 + 3}, $${i * 6 + 4}, $${
+                i * 6 + 5
+              }, $${i * 6 + 6})`
+          )
+          .join(",");
+        const flat = usuariosToInsert.flatMap((u) => [
+          u.matricula,
+          u.nombre,
+          u.paterno,
+          u.materno,
+          u.correo,
+          u.password,
+        ]);
+        const rows = await t.any(
+          `INSERT INTO usuarios (matricula, nombre, apellido_paterno, apellido_materno, correo, contraseña) 
+           VALUES ${values} RETURNING id, matricula`,
+          flat
+        );
+        usuariosDB.push(...rows);
+      }
 
-    return { success: true, message: "Datos importados correctamente" };
+      const idsUsuarios = usuariosDB.map((u) => u.id);
+      const yaTienenRol = await t.any(
+        "SELECT usuario_id FROM usuario_rol WHERE usuario_id IN ($1:csv) AND rol = 'alumno'",
+        [idsUsuarios]
+      );
+      const idsConRol = new Set(yaTienenRol.map((x) => x.usuario_id));
+      const rolesToInsert = usuariosDB
+        .filter((u) => !idsConRol.has(u.id))
+        .map((u) => u.id);
+      if (rolesToInsert.length) {
+        await t.none(
+          `INSERT INTO usuario_rol (usuario_id, rol) 
+           SELECT unnest($1::int[]), 'alumno'`,
+          [rolesToInsert]
+        );
+      }
+
+      const alumnosExistentes = await t.any(
+        "SELECT usuario_id FROM alumnos WHERE usuario_id IN ($1:csv)",
+        [usuariosDB.map((u) => u.id)]
+      );
+      const usuarioIdsEnAlumnos = new Set(
+        alumnosExistentes.map((x) => x.usuario_id)
+      );
+
+      const alumnosToInsert = [];
+      /*
+      console.log("Alumnos en Excel:", alumnos.length);
+      console.log("Usuarios nuevos:", usuariosToInsert.length);
+      console.log("Usuarios totales en DB:", usuariosDB.length);*/
+      alumnos.forEach((alumno) => {
+        const matricula = String(alumno.NO_CONTROL).trim();
+        const usuario = usuariosDB.find((u) => u.matricula === matricula);
+        if (!usuario || usuarioIdsEnAlumnos.has(usuario.id)) return;
+
+        const carreraNombre = String(alumno.CARRERA).trim();
+        const grupoNombre = String(alumno.GRUPO).trim();
+        const carrera = carrerasDB.find((c) => c.nombre === carreraNombre);
+        const grupo = gruposDB.find(
+          (g) => g.nombre === grupoNombre && g.periodo_id === periodoActual
+        );
+        alumnosToInsert.push({
+          usuario_id: usuario.id,
+          curp: String(alumno.CURP).trim(),
+          carrera_id: carrera ? carrera.id : null,
+          grupo_id: grupo ? grupo.id : null,
+          semestre: parseInt(alumno.SEMESTRE, 10) || 1,
+          generacion: String(alumno.GENERACION).trim(),
+          fecha_ingreso: fechaIngreso,
+        });
+      });
+
+      // Si hay usuarios únicos en tu Excel, no filtres más!
+      const uniqueAlumnosToInsert = alumnosToInsert;
+
+      if (uniqueAlumnosToInsert.length) {
+        const values = uniqueAlumnosToInsert
+          .map(
+            (_, i) =>
+              `($${i * 7 + 1}, $${i * 7 + 2}, $${i * 7 + 3}, $${i * 7 + 4}, $${
+                i * 7 + 5
+              }, $${i * 7 + 6}, $${i * 7 + 7}, 'activo')`
+          )
+          .join(",");
+        const flat = uniqueAlumnosToInsert.flatMap((a) => [
+          a.usuario_id,
+          a.curp,
+          a.carrera_id,
+          a.grupo_id,
+          a.semestre,
+          a.generacion,
+          a.fecha_ingreso,
+        ]);
+        await t.none(
+          `INSERT INTO alumnos 
+          (usuario_id, curp, carrera_id, grupo_id, semestre, generacion, fecha_ingreso, estado) 
+          VALUES ${values}`,
+          flat
+        );
+      }
+
+      return {
+        success: true,
+        message: `Se importaron ${uniqueAlumnosToInsert.length} nuevos alumnos.`,
+      };
+    });
   } catch (error) {
     console.error("Error al importar alumnos:", error);
     return {
@@ -130,7 +223,6 @@ async function importarAlumnosDesdeExcel(rutaArchivo) {
   }
 }
 
-// 📌 Función para manejar la subida y procesamiento del archivo
 const uploadFile = async (req, res) => {
   try {
     if (!req.file) {
@@ -138,12 +230,8 @@ const uploadFile = async (req, res) => {
         .status(400)
         .json({ success: false, message: "No se subió ningún archivo" });
     }
-
     const resultado = await importarAlumnosDesdeExcel(req.file.path);
-
-    // 🗑️ Eliminar el archivo después de procesarlo (opcional)
     fs.unlinkSync(req.file.path);
-
     res.status(200).json(resultado);
   } catch (error) {
     res.status(500).json({

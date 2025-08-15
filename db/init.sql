@@ -98,7 +98,8 @@ CREATE TABLE Alumnos (
     generacion VARCHAR(15) NOT NULL,
     fecha_ingreso DATE NOT NULL,
     semestre INT NOT NULL DEFAULT 1,
-    fecha_ultima_baja DATE NULL
+    fecha_ultima_baja DATE NULL,
+    fecha_modificacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Tabla de Padres
@@ -217,6 +218,33 @@ CREATE TABLE Notificaciones (
     leida BOOLEAN DEFAULT FALSE
 );
 
+CREATE TABLE system_config (
+ id SERIAL PRIMARY KEY,
+ config_key VARCHAR(100) UNIQUE NOT NULL,
+ config_value TEXT NOT NULL,
+ description TEXT,
+ is_public BOOLEAN DEFAULT false,
+ is_editable BOOLEAN DEFAULT true,
+ created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+ updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+ updated_by INT REFERENCES usuarios(id)
+);
+
+CREATE INDEX idx_system_config_key ON system_config(config_key);
+CREATE INDEX idx_system_config_public ON system_config(is_public);
+
+CREATE OR REPLACE FUNCTION update_system_config_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+ NEW.updated_at = CURRENT_TIMESTAMP;
+ RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+CREATE TRIGGER trg_update_system_config_timestamp
+ BEFORE UPDATE ON system_config
+ FOR EACH ROW
+ EXECUTE FUNCTION update_system_config_timestamp();
+
 -- Función y Trigger para actualizar el semestre considerando bajas temporales
 CREATE OR REPLACE FUNCTION actualizar_semestre()
 RETURNS TRIGGER AS $$
@@ -263,6 +291,21 @@ BEFORE UPDATE ON usuarios
 FOR EACH ROW
 EXECUTE FUNCTION actualizar_fecha_modificacion();
 
+-- Trigger para mantener fecha_modificacion
+CREATE OR REPLACE FUNCTION set_alumnos_fecha_modificacion()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.fecha_modificacion = CURRENT_TIMESTAMP;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+
+CREATE TRIGGER trg_set_alumnos_fecha_modificacion
+BEFORE UPDATE ON Alumnos
+FOR EACH ROW
+EXECUTE FUNCTION set_alumnos_fecha_modificacion();
+
 CREATE UNIQUE INDEX asistencia_unique_idx 
 ON asistencias (alumno_id, clase_id, fecha);
 
@@ -279,6 +322,15 @@ CREATE INDEX idx_asistencias_alumno_fecha ON Asistencias(alumno_id, fecha);
 CREATE INDEX idx_justificaciones_alumno_fecha ON Justificaciones(alumno_id, fecha_a_justificar);
 CREATE INDEX idx_incidencias_alumno_fecha ON Incidencias(alumno_id, fecha);
 CREATE INDEX idx_notificaciones_usuario_id ON Notificaciones(usuario_id);
+
+CREATE INDEX IF NOT EXISTS idx_usuarios_fecha_mod ON usuarios(fecha_modificacion);
+CREATE INDEX IF NOT EXISTS idx_usuarios_fecha_crea ON usuarios(fecha_creacion);
+
+CREATE INDEX IF NOT EXISTS idx_alumnos_fecha_mod ON alumnos(fecha_modificacion);
+CREATE INDEX IF NOT EXISTS idx_alumnos_fecha_ingreso ON alumnos(fecha_ingreso);
+CREATE INDEX IF NOT EXISTS idx_alumnos_estado ON alumnos(estado);
+
+
 
 
 

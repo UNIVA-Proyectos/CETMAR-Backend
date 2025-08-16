@@ -1,6 +1,7 @@
 const User = require("../models/user");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
+const { userValidationSchemas, validateRequest } = require("../utils/validation");
 require("dotenv").config();
 
 module.exports = {
@@ -40,6 +41,16 @@ module.exports = {
 
   async register(req, res) {
     try {
+      // Validación con Joi
+      const { error } = userValidationSchemas.create.validate(req.body);
+      if (error) {
+        return res.status(400).json({
+          success: false,
+          message: "Datos de entrada inválidos",
+          details: error.details.map(detail => detail.message)
+        });
+      }
+
       const {
         matricula,
         nombre,
@@ -50,22 +61,6 @@ module.exports = {
         telefono,
         roles,
       } = req.body;
-
-      if (
-        !matricula ||
-        !nombre ||
-        !apellido_paterno ||
-        !apellido_materno ||
-        !correo ||
-        !contraseña ||
-        !roles ||
-        roles.length === 0
-      ) {
-        return res.status(400).json({
-          success: false,
-          message: "Todos los campos son requeridos, incluyendo roles",
-        });
-      }
 
       const user = {
         matricula,
@@ -90,12 +85,23 @@ module.exports = {
       return res.status(500).json({
         success: false,
         message: "Error al registrar el usuario",
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
   },
 
   async update(req, res) {
     try {
+      // Validación con Joi
+      const { error } = userValidationSchemas.update.validate(req.body);
+      if (error) {
+        return res.status(400).json({
+          success: false,
+          message: "Datos de entrada inválidos",
+          details: error.details.map(detail => detail.message)
+        });
+      }
+
       const {
         id,
         nombre,
@@ -105,21 +111,6 @@ module.exports = {
         telefono,
         roles,
       } = req.body;
-
-      if (
-        !id ||
-        !nombre ||
-        !apellido_paterno ||
-        !apellido_materno ||
-        !correo ||
-        !roles ||
-        roles.length === 0
-      ) {
-        return res.status(400).json({
-          success: false,
-          message: "Faltan datos obligatorios o roles",
-        });
-      }
 
       await User.update({
         id,
@@ -138,6 +129,7 @@ module.exports = {
       return res.status(500).json({
         success: false,
         message: "Error al actualizar el usuario",
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
   },
@@ -361,32 +353,53 @@ module.exports = {
         FROM Usuario_Rol
         GROUP BY rol
       `);
+      console.log('Role counts from DB:', counts); // Debug log
+      
       // Mapeo de roles a los nombres esperados
       let profesores = 0,
         estudiantes = 0,
         padres = 0,
         administradores = 0;
       counts.forEach((c) => {
+        console.log(`Processing role: ${c.rol}, count: ${c.total}`); // Debug log
         if (c.rol === "admin") administradores = parseInt(c.total, 10);
         if (c.rol === "profesor" || c.rol === "docente")
           profesores += parseInt(c.total, 10);
         if (c.rol === "estudiante" || c.rol === "alumno")
           estudiantes += parseInt(c.total, 10);
-        if (c.rol === "padre") padres += parseInt(c.total, 10);
+        if (c.rol === "padre" || c.rol === "tutor") 
+          padres += parseInt(c.total, 10);
+        // Mapear roles del enum de la base de datos
+        if (c.rol === "directivo" || c.rol === "administrativo") 
+          administradores += parseInt(c.total, 10);
       });
-      // Lista de usuarios para la tabla (puede seguir como antes)
-      const users = await require("../models/user").getAll();
+      
+      console.log('Final counts:', { profesores, estudiantes, padres, administradores }); // Debug log
+      // Lista de usuarios para la tabla
+      const users = await User.getAll();
       const lista = users.map((u) => {
-        let rol = Array.isArray(u.roles) ? u.roles[0] : u.rol || "";
+        // Parse PostgreSQL array format {admin,alumno} to JavaScript array
+        let rolesArray = [];
+        if (u.roles) {
+          if (typeof u.roles === 'string') {
+            // Remove braces and split by comma
+            rolesArray = u.roles.replace(/[{}]/g, '').split(',').filter(r => r && r.trim());
+          } else if (Array.isArray(u.roles)) {
+            rolesArray = u.roles.filter(r => r !== null);
+          }
+        }
+        
+        const rol = rolesArray.length > 0 ? rolesArray[0] : "";
         return {
           id: u.id,
-          nombre:
-            u.nombre + (u.apellido_paterno ? " " + u.apellido_paterno : ""),
+          nombre: `${u.nombre}${u.apellido_paterno ? ` ${u.apellido_paterno}` : ''}`,
           email: u.correo,
-          rol: rol,
+          rol,
+          roles: rolesArray,
           estado: u.estado || "activo",
           grupo: u.grupo || "",
           fechaRegistro: u.fecha_creacion || "",
+          telefono: u.telefono || ""
         };
       });
       res.json({ profesores, estudiantes, padres, administradores, lista });

@@ -3,20 +3,24 @@ const bcrypt = require("bcryptjs");
 
 const User = {};
 
-//Obtener todos los usuarios
-User.getAll = () => {
+//Obtener todos los usuarios con sus roles
+User.getAll = async () => {
   const sql = `
     SELECT 
-      id,
-      TRIM(nombre) AS nombre,
-      TRIM(apellido_paterno) AS apellido_paterno,
-      TRIM(apellido_materno) AS apellido_materno,
-      TRIM(matricula) AS matricula,
-      contraseña,
-      TRIM(correo) AS correo,
-      telefono,
-      fecha_creacion
-    FROM usuarios;
+      u.id,
+      TRIM(u.nombre) AS nombre,
+      TRIM(u.apellido_paterno) AS apellido_paterno,
+      TRIM(u.apellido_materno) AS apellido_materno,
+      TRIM(u.matricula) AS matricula,
+      u.contraseña,
+      TRIM(u.correo) AS correo,
+      u.telefono,
+      u.fecha_creacion,
+      ARRAY_AGG(ur.rol) FILTER (WHERE ur.rol IS NOT NULL) AS roles
+    FROM usuarios u
+    LEFT JOIN Usuario_Rol ur ON u.id = ur.usuario_id
+    GROUP BY u.id, u.nombre, u.apellido_paterno, u.apellido_materno, 
+             u.matricula, u.contraseña, u.correo, u.telefono, u.fecha_creacion;
   `;
   return db.manyOrNone(sql);
 };

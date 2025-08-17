@@ -12,4 +12,16 @@ const loginRateLimiter = rateLimit({
   legacyHeaders: false,  // deshabilita X-RateLimit-* headers
 });
 
-module.exports = { loginRateLimiter };
+// Limita a 10 intentos por IP cada minuto en el endpoint de refresh-token
+const refreshTokenRateLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minuto
+  max: 10,
+  message: {
+    success: false,
+    message: 'Demasiados intentos de refresh token, intenta de nuevo más tarde.',
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+module.exports = { loginRateLimiter, refreshTokenRateLimiter };

@@ -239,38 +239,48 @@ module.exports = {
   async refreshToken(req, res) {
     try {
       const { refreshToken } = req.cookies;
+      
       if (!refreshToken) {
+        console.log("No refresh token provided in cookies");
         return res
-          .status(401)
+          .status(400)
           .json({ success: false, message: "No se proporcionó refresh token" });
       }
+      
       let decoded;
       try {
         decoded = jwt.verify(refreshToken, process.env.JWT_SECRET);
       } catch (err) {
-        return res.status(403).json({
+        console.log("Invalid or expired refresh token:", err.message);
+        return res.status(400).json({
           success: false,
           message: "Refresh token inválido o expirado",
         });
       }
+      
       const user = await User.findByUserId(decoded.id);
       if (!user) {
+        console.log("User not found for refresh token");
         return res
-          .status(401)
+          .status(400)
           .json({ success: false, message: "Usuario no encontrado" });
       }
+      
       const roles = await User.getRolesByUserId(user.id);
       const newAccessToken = jwt.sign(
         { id: user.id, matricula: user.matricula, roles },
         process.env.JWT_SECRET,
         { expiresIn: "15m" }
       );
+      
       res.cookie("token", newAccessToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "strict",
         maxAge: 15 * 60 * 1000,
       });
+      
+      console.log("Token refreshed successfully for user:", user.matricula);
       return res.status(200).json({ success: true });
     } catch (error) {
       console.error("Error en refreshToken:", error);

@@ -2,7 +2,7 @@ const UsersController = require("../controllers/usersController");
 const authenticate = require("../middleware/authenticate");
 const requireRoles = require("../middleware/requireRole");
 const DashboardController = require("../controllers/dashboardController");
-const { loginRateLimiter } = require("../middleware/rateLimit");
+const { loginRateLimiter, refreshTokenRateLimiter } = require("../middleware/rateLimit");
 
 module.exports = (app) => {
   //Obtener datos
@@ -25,7 +25,7 @@ module.exports = (app) => {
 
   app.post("/api/users/login", loginRateLimiter, UsersController.login);
   app.post("/api/users/logout", UsersController.logout);
-  app.post("/api/users/refresh-token", UsersController.refreshToken);
+  app.post("/api/users/refresh-token", refreshTokenRateLimiter, UsersController.refreshToken);
 
   //ACTUALIZAR DATOS
   app.put(

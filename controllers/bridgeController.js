@@ -74,4 +74,18 @@ module.exports = {
       });
     }
   },
+
+  async syncUsuariosAll(req, res) {
+    // FULL SYNC SIN PAGINACIÓN
+    try {
+      const usuarios = await Bridge.getAllUsuarios();
+      return res.status(200).json({ success: true, usuarios });
+    } catch (error) {
+      console.error("Error en syncUsuariosAll:", error);
+      res.status(500).json({
+        success: false,
+        error: "Error interno del servidor",
+      });
+    }
+  },
 };

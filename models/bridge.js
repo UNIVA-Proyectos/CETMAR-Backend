@@ -90,4 +90,28 @@ Bridge.guardarEntradasSalidasLote = async (logs) => {
   });
 };
 
+Bridge.getAllUsuarios = async () => {
+  const query = `
+    SELECT
+      u.id,
+      u.matricula,
+      u.nombre,
+      u.apellido_paterno,
+      u.apellido_materno,
+      a.id AS alumno_id,
+      a.estado,
+      GREATEST(
+        COALESCE(u.fecha_modificacion, u.fecha_creacion),
+        COALESCE(a.fecha_modificacion, a.fecha_ingreso),
+        COALESCE(a.fecha_ultima_baja, '1970-01-01')
+      ) AS last_update
+    FROM
+      usuarios u
+    JOIN
+      alumnos a ON a.usuario_id = u.id
+    ORDER BY last_update, u.id
+  `;
+  return await db.manyOrNone(query);
+};
+
 module.exports = Bridge;

@@ -10,7 +10,7 @@ const userValidationSchemas = {
     correo: Joi.string().email().required(),
     contraseña: Joi.string().min(6).required(),
     telefono: Joi.string().optional().allow('').pattern(/^[0-9]{10}$/),
-    roles: Joi.array().items(Joi.string().valid('admin', 'profesor', 'estudiante', 'padre')).min(1).required()
+    roles: Joi.array().items(Joi.string().valid('admin', 'profesor', 'alumno', 'padre')).min(1).required()
   }),
 
   update: Joi.object({
@@ -20,7 +20,7 @@ const userValidationSchemas = {
     apellido_materno: Joi.string().required().min(2).max(100).trim(),
     correo: Joi.string().email().required(),
     telefono: Joi.string().optional().allow('').pattern(/^[0-9]{10}$/),
-    roles: Joi.array().items(Joi.string().valid('admin', 'profesor', 'estudiante', 'padre')).min(1).required()
+    roles: Joi.array().items(Joi.string().valid('admin', 'profesor', 'alumno', 'padre')).min(1).required()
   })
 };
 

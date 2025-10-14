@@ -401,7 +401,8 @@ module.exports = {
         
         const rol = rolesArray.length > 0 ? rolesArray[0] : "";
         return {
-          id: u.id,
+          id: u.matricula, // La matrícula es el ID visible
+          matricula: u.matricula, // Campo específico de matrícula
           nombre: `${u.nombre}${u.apellido_paterno ? ` ${u.apellido_paterno}` : ''}`,
           email: u.correo,
           rol,
@@ -417,6 +418,305 @@ module.exports = {
       res.status(500).json({
         error: "Error al obtener resumen de usuarios",
         details: error.message,
+      });
+    }
+  },
+
+  async delete(req, res) {
+    try {
+      const { id } = req.params;
+      
+      // Verificar que el usuario existe
+      const user = await User.findByMatricula(id);
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "Usuario no encontrado"
+        });
+      }
+
+      // Eliminar roles del usuario primero
+      const db = require("../config/config");
+      await db.none('DELETE FROM Usuario_Rol WHERE usuario_id = $1', [user.id]);
+      
+      // Eliminar el usuario
+      await db.none('DELETE FROM Usuarios WHERE id = $1', [user.id]);
+
+      return res.status(200).json({
+        success: true,
+        message: "Usuario eliminado correctamente"
+      });
+    } catch (error) {
+      console.error("Error en delete:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Error al eliminar el usuario",
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  },
+
+  // Métodos para estudiantes
+  async getCurrentStudent(req, res) {
+    try {
+      const userId = req.user.id;
+      const db = require("../config/config");
+      
+      // Obtener información del estudiante actual
+      const student = await db.oneOrNone(`
+        SELECT 
+          u.id,
+          u.matricula,
+          u.nombre,
+          u.apellido_paterno,
+          u.apellido_materno,
+          u.correo,
+          u.telefono,
+          u.fecha_creacion,
+          a.grupo,
+          c.nombre as carrera
+        FROM Usuarios u
+        LEFT JOIN Alumnos a ON u.id = a.usuario_id
+        LEFT JOIN Carreras c ON a.carrera_id = c.id
+        WHERE u.id = $1
+      `, [userId]);
+
+      if (!student) {
+        return res.status(404).json({
+          success: false,
+          message: "Estudiante no encontrado"
+        });
+      }
+
+      return res.json({
+        success: true,
+        data: {
+          nombre: `${student.nombre} ${student.apellido_paterno || ''} ${student.apellido_materno || ''}`.trim(),
+          matricula: student.matricula,
+          grupo: student.grupo || 'Sin grupo',
+          carrera: student.carrera || 'Sin carrera',
+          email: student.correo,
+          telefono: student.telefono,
+          fechaRegistro: student.fecha_creacion
+        }
+      });
+    } catch (error) {
+      console.error("Error en getCurrentStudent:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Error al obtener información del estudiante",
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  },
+
+  async getCurrentStudentGrades(req, res) {
+    try {
+      const userId = req.user.id;
+      const db = require("../config/config");
+      
+      // Obtener calificaciones del estudiante
+      const grades = await db.manyOrNone(`
+        SELECT 
+          m.nombre as materia,
+          c.calificacion,
+          COUNT(CASE WHEN a.estado = 'Inasistencia' THEN 1 END) as faltas
+        FROM Calificaciones c
+        JOIN Materias m ON c.materia_id = m.id
+        LEFT JOIN Asistencias a ON c.alumno_id = a.alumno_id AND c.materia_id = a.materia_id
+        WHERE c.alumno_id = (SELECT id FROM Alumnos WHERE usuario_id = $1)
+        GROUP BY m.nombre, c.calificacion
+      `, [userId]);
+
+      const promedio = grades.length > 0 
+        ? grades.reduce((sum, grade) => sum + parseFloat(grade.calificacion), 0) / grades.length 
+        : 0;
+
+      return res.json({
+        success: true,
+        data: {
+          promedio: Math.round(promedio * 10) / 10,
+          materias: grades.map(grade => ({
+            nombre: grade.materia,
+            calificacion: parseFloat(grade.calificacion),
+            faltas: parseInt(grade.faltas) || 0
+          }))
+        }
+      });
+    } catch (error) {
+      console.error("Error en getCurrentStudentGrades:", error);
+      return res.json({
+        success: true,
+        data: {
+          promedio: 0,
+          materias: []
+        }
+      });
+    }
+  },
+
+  async getCurrentStudentAttendance(req, res) {
+    try {
+      const userId = req.user.id;
+      const db = require("../config/config");
+      
+      // Obtener estadísticas de asistencia
+      const stats = await db.oneOrNone(`
+        SELECT 
+          COUNT(*) as total,
+          COUNT(CASE WHEN estado = 'Asistencia' THEN 1 END) as presentes,
+          COUNT(CASE WHEN estado = 'Inasistencia' THEN 1 END) as faltas,
+          COUNT(CASE WHEN estado = 'Retardo' THEN 1 END) as retardos
+        FROM Asistencias a
+        JOIN Alumnos al ON a.alumno_id = al.id
+        WHERE al.usuario_id = $1
+      `, [userId]);
+
+      const total = parseInt(stats?.total) || 0;
+      const presentes = parseInt(stats?.presentes) || 0;
+      const faltas = parseInt(stats?.faltas) || 0;
+      const retardos = parseInt(stats?.retardos) || 0;
+      const porcentaje = total > 0 ? Math.round((presentes / total) * 100) : 0;
+
+      return res.json({
+        success: true,
+        data: {
+          total,
+          presentes,
+          faltas,
+          retardos,
+          porcentaje
+        }
+      });
+    } catch (error) {
+      console.error("Error en getCurrentStudentAttendance:", error);
+      return res.json({
+        success: true,
+        data: {
+          total: 0,
+          presentes: 0,
+          faltas: 0,
+          retardos: 0,
+          porcentaje: 0
+        }
+      });
+    }
+  },
+
+  async getCurrentStudentIncidents(req, res) {
+    try {
+      const userId = req.user.id;
+      const db = require("../config/config");
+      
+      // Obtener incidencias del estudiante
+      const incidents = await db.manyOrNone(`
+        SELECT 
+          i.fecha,
+          i.motivo as tipo,
+          i.descripcion,
+          i.estado
+        FROM Incidencias i
+        JOIN Alumnos a ON i.alumno_id = a.id
+        WHERE a.usuario_id = $1
+        ORDER BY i.fecha DESC
+        LIMIT 10
+      `, [userId]);
+
+      return res.json({
+        success: true,
+        data: incidents.map(incident => ({
+          fecha: incident.fecha,
+          tipo: incident.tipo,
+          descripcion: incident.descripcion,
+          estado: incident.estado
+        }))
+      });
+    } catch (error) {
+      console.error("Error en getCurrentStudentIncidents:", error);
+      return res.json({
+        success: true,
+        data: []
+      });
+    }
+  },
+
+  async getCurrentStudentNotifications(req, res) {
+    try {
+      const userId = req.user.id;
+      const db = require("../config/config");
+      
+      // Obtener notificaciones del estudiante
+      const notifications = await db.manyOrNone(`
+        SELECT 
+          n.id,
+          n.mensaje,
+          n.fecha,
+          n.leido
+        FROM Notificaciones n
+        JOIN Alumnos a ON n.alumno_id = a.id
+        WHERE a.usuario_id = $1
+        ORDER BY n.fecha DESC
+        LIMIT 10
+      `, [userId]);
+
+      return res.json({
+        success: true,
+        data: notifications.map(notification => ({
+          id: notification.id,
+          mensaje: notification.mensaje,
+          fecha: notification.fecha,
+          leida: notification.leido
+        }))
+      });
+    } catch (error) {
+      console.error("Error en getCurrentStudentNotifications:", error);
+      return res.json({
+        success: true,
+        data: []
+      });
+    }
+  },
+
+  async getCurrentStudentStats(req, res) {
+    try {
+      const userId = req.user.id;
+      const db = require("../config/config");
+      
+      // Obtener estadísticas generales del estudiante
+      const stats = await db.oneOrNone(`
+        SELECT 
+          COUNT(DISTINCT a.id) as total_clases,
+          COUNT(CASE WHEN a.estado = 'Asistencia' THEN 1 END) as asistencias,
+          COUNT(CASE WHEN a.estado = 'Inasistencia' THEN 1 END) as faltas,
+          COUNT(CASE WHEN a.estado = 'Retardo' THEN 1 END) as retardos,
+          COUNT(DISTINCT i.id) as total_incidencias
+        FROM Alumnos al
+        LEFT JOIN Asistencias a ON al.id = a.alumno_id
+        LEFT JOIN Incidencias i ON al.id = i.alumno_id
+        WHERE al.usuario_id = $1
+      `, [userId]);
+
+      return res.json({
+        success: true,
+        data: {
+          totalClases: parseInt(stats?.total_clases) || 0,
+          asistencias: parseInt(stats?.asistencias) || 0,
+          faltas: parseInt(stats?.faltas) || 0,
+          retardos: parseInt(stats?.retardos) || 0,
+          totalIncidencias: parseInt(stats?.total_incidencias) || 0
+        }
+      });
+    } catch (error) {
+      console.error("Error en getCurrentStudentStats:", error);
+      return res.json({
+        success: true,
+        data: {
+          totalClases: 0,
+          asistencias: 0,
+          faltas: 0,
+          retardos: 0,
+          totalIncidencias: 0
+        }
       });
     }
   },

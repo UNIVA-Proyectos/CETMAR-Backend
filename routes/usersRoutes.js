@@ -35,6 +35,14 @@ module.exports = (app) => {
     UsersController.update
   );
 
+  //ELIMINAR DATOS
+  app.delete(
+    "/api/users/:id",
+    authenticate,
+    requireRoles(["admin"]),
+    UsersController.delete
+  );
+
   // Endpoint de estadísticas del panel admin
   app.get(
     "/api/dashboard/admin-stats",
@@ -49,5 +57,48 @@ module.exports = (app) => {
     authenticate,
     requireRoles(["admin", "directivo", "administrativo"]),
     UsersController.getSummary
+  );
+
+  // Endpoints para estudiantes
+  app.get(
+    "/api/students/current",
+    authenticate,
+    requireRoles(["alumno"]),
+    UsersController.getCurrentStudent
+  );
+
+  app.get(
+    "/api/students/current/grades",
+    authenticate,
+    requireRoles(["alumno"]),
+    UsersController.getCurrentStudentGrades
+  );
+
+  app.get(
+    "/api/students/current/attendance",
+    authenticate,
+    requireRoles(["alumno"]),
+    UsersController.getCurrentStudentAttendance
+  );
+
+  app.get(
+    "/api/students/current/incidents",
+    authenticate,
+    requireRoles(["alumno"]),
+    UsersController.getCurrentStudentIncidents
+  );
+
+  app.get(
+    "/api/students/current/notifications",
+    authenticate,
+    requireRoles(["alumno"]),
+    UsersController.getCurrentStudentNotifications
+  );
+
+  app.get(
+    "/api/students/current/stats",
+    authenticate,
+    requireRoles(["alumno"]),
+    UsersController.getCurrentStudentStats
   );
 };

@@ -3,7 +3,19 @@ const db = require("../config/config");
 const Docente = {};
 
 Docente.getAllDocentes = () => {
-  return db.manyOrNone("SELECT * FROM docentes;");
+  const sql = `
+    SELECT 
+      d.id,
+      d.usuario_id,
+      d.academia,
+      u.nombre,
+      u.apellido_paterno,
+      u.apellido_materno
+    FROM docentes d
+    INNER JOIN usuarios u ON d.usuario_id = u.id
+    ORDER BY u.nombre;
+  `;
+  return db.manyOrNone(sql);
 };
 
 Docente.findById = (id) => {

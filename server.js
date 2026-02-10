@@ -26,6 +26,7 @@ const bridge = require("./routes/bridgeRoutes");
 const incidencias = require("./routes/incidenciasRoutes");
 const gruposRoutes = require("./routes/gruposRoutes");
 const systemConfigRoutes = require("./routes/sysConfigRoutes");
+const periodosRoutes = require("./routes/periodosRoutes");
 
 const port = process.env.PORT || 3000;
 
@@ -62,6 +63,7 @@ notificacionesRoutes(app, io);
 incidencias(app);
 gruposRoutes(app);
 systemConfigRoutes(app);
+periodosRoutes(app);
 
 server.listen(port, "0.0.0.0", function () {
   console.log(

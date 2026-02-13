@@ -239,14 +239,14 @@ module.exports = {
   async refreshToken(req, res) {
     try {
       const { refreshToken } = req.cookies;
-      
+
       if (!refreshToken) {
         console.log("No refresh token provided in cookies");
         return res
           .status(400)
           .json({ success: false, message: "No se proporcionó refresh token" });
       }
-      
+
       let decoded;
       try {
         decoded = jwt.verify(refreshToken, process.env.JWT_SECRET);
@@ -257,7 +257,7 @@ module.exports = {
           message: "Refresh token inválido o expirado",
         });
       }
-      
+
       const user = await User.findByUserId(decoded.id);
       if (!user) {
         console.log("User not found for refresh token");
@@ -265,21 +265,21 @@ module.exports = {
           .status(400)
           .json({ success: false, message: "Usuario no encontrado" });
       }
-      
+
       const roles = await User.getRolesByUserId(user.id);
       const newAccessToken = jwt.sign(
         { id: user.id, matricula: user.matricula, roles },
         process.env.JWT_SECRET,
         { expiresIn: "15m" }
       );
-      
+
       res.cookie("token", newAccessToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "strict",
         maxAge: 15 * 60 * 1000,
       });
-      
+
       console.log("Token refreshed successfully for user:", user.matricula);
       return res.status(200).json({ success: true });
     } catch (error) {
@@ -364,7 +364,7 @@ module.exports = {
         GROUP BY rol
       `);
       console.log('Role counts from DB:', counts); // Debug log
-      
+
       // Mapeo de roles a los nombres esperados
       let profesores = 0,
         estudiantes = 0,
@@ -377,13 +377,13 @@ module.exports = {
           profesores += parseInt(c.total, 10);
         if (c.rol === "estudiante" || c.rol === "alumno")
           estudiantes += parseInt(c.total, 10);
-        if (c.rol === "padre" || c.rol === "tutor") 
+        if (c.rol === "padre" || c.rol === "tutor")
           padres += parseInt(c.total, 10);
         // Mapear roles del enum de la base de datos
-        if (c.rol === "directivo" || c.rol === "administrativo") 
+        if (c.rol === "directivo" || c.rol === "administrativo")
           administradores += parseInt(c.total, 10);
       });
-      
+
       console.log('Final counts:', { profesores, estudiantes, padres, administradores }); // Debug log
       // Lista de usuarios para la tabla
       const users = await User.getAll();
@@ -398,12 +398,15 @@ module.exports = {
             rolesArray = u.roles.filter(r => r !== null);
           }
         }
-        
+
         const rol = rolesArray.length > 0 ? rolesArray[0] : "";
         return {
-          id: u.matricula, // La matrícula es el ID visible
+          id: u.id, // numeric DB id for update/delete
           matricula: u.matricula, // Campo específico de matrícula
           nombre: `${u.nombre}${u.apellido_paterno ? ` ${u.apellido_paterno}` : ''}`,
+          nombre_raw: u.nombre,
+          apellido_paterno: u.apellido_paterno || '',
+          apellido_materno: u.apellido_materno || '',
           email: u.correo,
           rol,
           roles: rolesArray,
@@ -425,7 +428,7 @@ module.exports = {
   async delete(req, res) {
     try {
       const { id } = req.params;
-      
+
       // Verificar que el usuario existe
       const user = await User.findByMatricula(id);
       if (!user) {
@@ -438,7 +441,7 @@ module.exports = {
       // Eliminar roles del usuario primero
       const db = require("../config/config");
       await db.none('DELETE FROM Usuario_Rol WHERE usuario_id = $1', [user.id]);
-      
+
       // Eliminar el usuario
       await db.none('DELETE FROM Usuarios WHERE id = $1', [user.id]);
 
@@ -461,7 +464,7 @@ module.exports = {
     try {
       const userId = req.user.id;
       const db = require("../config/config");
-      
+
       // Obtener información del estudiante actual
       const student = await db.oneOrNone(`
         SELECT 
@@ -514,7 +517,7 @@ module.exports = {
     try {
       const userId = req.user.id;
       const db = require("../config/config");
-      
+
       // Obtener calificaciones del estudiante
       const grades = await db.manyOrNone(`
         SELECT 
@@ -528,8 +531,8 @@ module.exports = {
         GROUP BY m.nombre, c.calificacion
       `, [userId]);
 
-      const promedio = grades.length > 0 
-        ? grades.reduce((sum, grade) => sum + parseFloat(grade.calificacion), 0) / grades.length 
+      const promedio = grades.length > 0
+        ? grades.reduce((sum, grade) => sum + parseFloat(grade.calificacion), 0) / grades.length
         : 0;
 
       return res.json({
@@ -559,7 +562,7 @@ module.exports = {
     try {
       const userId = req.user.id;
       const db = require("../config/config");
-      
+
       // Obtener estadísticas de asistencia
       const stats = await db.oneOrNone(`
         SELECT 
@@ -607,7 +610,7 @@ module.exports = {
     try {
       const userId = req.user.id;
       const db = require("../config/config");
-      
+
       // Obtener incidencias del estudiante
       const incidents = await db.manyOrNone(`
         SELECT 
@@ -644,7 +647,7 @@ module.exports = {
     try {
       const userId = req.user.id;
       const db = require("../config/config");
-      
+
       // Obtener notificaciones del estudiante
       const notifications = await db.manyOrNone(`
         SELECT 
@@ -681,7 +684,7 @@ module.exports = {
     try {
       const userId = req.user.id;
       const db = require("../config/config");
-      
+
       // Obtener estadísticas generales del estudiante
       const stats = await db.oneOrNone(`
         SELECT 

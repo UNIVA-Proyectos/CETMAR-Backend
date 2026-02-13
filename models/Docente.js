@@ -6,13 +6,19 @@ Docente.getAllDocentes = () => {
   const sql = `
     SELECT 
       d.id,
-      d.usuario_id,
+      u.id as usuario_id,
       d.academia,
       u.nombre,
       u.apellido_paterno,
-      u.apellido_materno
-    FROM docentes d
-    INNER JOIN usuarios u ON d.usuario_id = u.id
+      u.apellido_materno,
+      u.correo,
+      u.telefono,
+      u.fecha_creacion
+    FROM usuarios u
+    INNER JOIN Usuario_Rol ur ON u.id = ur.usuario_id
+    LEFT JOIN docentes d ON u.id = d.usuario_id
+    WHERE ur.rol = 'docente'
+    GROUP BY d.id, u.id, d.academia, u.nombre, u.apellido_paterno, u.apellido_materno, u.correo, u.telefono, u.fecha_creacion
     ORDER BY u.nombre;
   `;
   return db.manyOrNone(sql);
